@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:NetCut.Controls"
              x:Class="NetCut.MainPage"
              Title="NetCut"
              BackgroundColor="#15171B">
@@ -33,8 +34,11 @@
       <Border Grid.Column="1" BackgroundColor="#0B0D10" StrokeThickness="0" Padding="16">
         <VerticalStackLayout Spacing="12">
           <Label Text="PREVIEW" TextColor="#B8C0CB" FontAttributes="Bold"/>
-          <Label Text="Native preview will be implemented with a Windows media surface. No WebView is used."
-                 TextColor="#8F98A7" HorizontalTextAlignment="Center" VerticalOptions="Center" HeightRequest="180"/>
+          <controls:NativeVideoView x:Name="VideoPreview" HeightRequest="260" />
+          <HorizontalStackLayout Spacing="8">
+            <Button Text="Play" Clicked="OnPlayClicked"/>
+            <Button Text="Pause" Clicked="OnPauseClicked"/>
+          </HorizontalStackLayout>
           <Label x:Name="ProjectNameLabel" Text="Untitled Project" FontSize="21" TextColor="White"
                  HorizontalTextAlignment="Center"/>
           <Button Text="Add Selected Media to Timeline" Clicked="OnAddClipClicked"/>
@@ -50,6 +54,9 @@
           <Entry x:Name="OutEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
           <Button Text="Apply Trim to Selected Clip" Clicked="OnApplyTrimClicked"/>
           <Button Text="Remove Clip" Clicked="OnRemoveClipClicked"/>
+          <Label Text="Track (0 = V1)" TextColor="White"/>
+          <Entry x:Name="TrackEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
+          <Button Text="Move to Track" Clicked="OnMoveTrackClicked"/>
         </VerticalStackLayout>
       </Border>
     </Grid>
@@ -57,7 +64,7 @@
     <Border Grid.Row="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
       <Grid RowDefinitions="Auto,*" RowSpacing="6">
         <Label Text="TIMELINE (CLIPS)" TextColor="White" FontAttributes="Bold"/>
-        <CollectionView x:Name="TimelineList" Grid.Row="1" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged">
+        <CollectionView x:Name="TimelineList" Grid.Row="1" HeightRequest="60" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged">
           <CollectionView.ItemTemplate>
             <DataTemplate>
               <Border BackgroundColor="#166F61" Padding="12" Margin="2">
@@ -66,6 +73,9 @@
             </DataTemplate>
           </CollectionView.ItemTemplate>
         </CollectionView>
+        <ScrollView Orientation="Horizontal" Grid.Row="1" Margin="0,65,0,0">
+          <controls:TimelineCanvas x:Name="TimelineCanvas" WidthRequest="4000"/>
+        </ScrollView>
       </Grid>
     </Border>
 

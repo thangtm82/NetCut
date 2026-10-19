@@ -15,6 +15,7 @@ public sealed class TimelineClip
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string MediaId { get; set; } = "";
+    public int TrackIndex { get; set; } = 0;
     public string Name { get; set; } = "";
     public double StartSeconds { get; set; }
     public double InSeconds { get; set; }

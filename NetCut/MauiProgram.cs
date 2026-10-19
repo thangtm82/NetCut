@@ -8,6 +8,9 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
+#if WINDOWS
+        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<NetCut.Controls.NativeVideoView, NetCut.Platforms.Windows.NativeVideoHandler>());
+#endif
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
