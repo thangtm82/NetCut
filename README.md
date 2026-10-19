@@ -53,3 +53,20 @@ The exported video is written under the MAUI application data directory.
 
 Requires FFmpeg and FFprobe installed. Test Windows compilation and a
 small multi-clip export before merging or distributing this code.
+
+
+## Experimental native multitrack FFmpeg compositor (PR phase 4)
+
+`CompositionPlan` builds a `filter_complex` graph of a black 720p canvas,
+overlaying video clips in ascending `TrackIndex` (higher tracks appear above lower)
+and mixing audio streams from all timeline clips. Absolute `StartSeconds`,
+source In/Out trimming, audio-only inputs, and gaps are supported in the export
+plan. The editor uses `FfmpegService.ExportCompositionAsync` for its MP4 export.
+
+**Known limitations:** no live composited preview, fades, transitions,
+opacity, clip gain, waveform, seek synchronization, cancel/progress UI, hardware
+acceleration, or robust render presets. All source audio streams are mixed at
+unity gain and might clip; output is fixed at 1280x720, 30fps, H.264/AAC.
+Overlapping clips on the same track have deterministic sequential ordering,
+not a fully-defined video-editor z-order. Large projects may be slow.
+This feature has not yet passed a Windows build or end-to-end video test.
