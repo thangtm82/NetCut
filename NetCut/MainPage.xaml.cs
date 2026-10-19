@@ -151,6 +151,32 @@ public partial class MainPage : ContentPage
         StatusLabel.Text = $"Added {media.Name} to timeline.";
     }
 
+    private void OnMediaDragStarting(object sender, DragStartingEventArgs e)
+    {
+        if (sender is BindableObject view && view.BindingContext is MediaItem media)
+            e.Data.Properties["NetCutMediaId"] = media.Id;
+    }
+
+    private void OnMediaDropped(object sender, DropEventArgs e)
+    {
+        if (!e.Data.Properties.TryGetValue("NetCutMediaId", out var value)) return;
+        var media = _project.Media.FirstOrDefault(m => m.Id == value as string);
+        if (media is null) return;
+        // Track and timestamp are controlled explicitly by the inspector and playhead.
+        var track = int.TryParse(TrackEntry.Text, out var selectedTrack) ?
+            Math.Clamp(selectedTrack, 0, 8) : 0;
+        _history.Record(_project);
+        var clip = new TimelineClip {
+            MediaId = media.Id, Name = media.Name, TrackIndex = track,
+            StartSeconds = PlayheadSlider.Value, InSeconds = 0,
+            OutSeconds = media.DurationSeconds
+        };
+        _project.Clips.Add(clip);
+        RefreshTimeline();
+        TimelineList.SelectedItem = clip;
+        StatusLabel.Text = $"Dropped {media.Name} onto track {track + 1} at {clip.StartSeconds:F2}s.";
+    }
+
     private void OnTimelineSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (e.CurrentSelection.FirstOrDefault() is not TimelineClip clip) return;
