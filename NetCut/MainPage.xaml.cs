@@ -10,6 +10,10 @@ public partial class MainPage : ContentPage
     private string? _projectPath;
     private readonly ProjectHistory _history = new();
     private double? _dragStart;
+    private double? _trimStartIn;
+    private double? _trimStartOut;
+    private bool _shortcutsAttached;
+    private bool _previewPlaying;
     private CancellationTokenSource? _exportCancellation;
     private CancellationTokenSource? _frameCancellation;
     private CancellationTokenSource? _previewCancellation;
@@ -23,6 +27,20 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+#if WINDOWS
+        HandlerChanged += (_, _) =>
+        {
+            if (_shortcutsAttached || Handler?.PlatformView is not Microsoft.UI.Xaml.FrameworkElement root) return;
+            _shortcutsAttached = true;
+            NetCut.Platforms.Windows.TimelineShortcuts.Attach(root,
+                () => OnUndoClicked(this, EventArgs.Empty),
+                () => OnRedoClicked(this, EventArgs.Empty),
+                () => OnSaveClicked(this, EventArgs.Empty),
+                () => { if (_previewPlaying) OnPauseClicked(this, EventArgs.Empty); else OnPlayClicked(this, EventArgs.Empty); },
+                () => OnRemoveClipClicked(this, EventArgs.Empty),
+                () => OnSplitClicked(this, EventArgs.Empty));
+        };
+#endif
         TimelineCanvas.StartInteraction += (_, e) => {
             if (e.Touches.Length > 0) TimelineCanvas.BeginPointer(e.Touches[0].X, e.Touches[0].Y);
         };
@@ -32,17 +50,34 @@ public partial class MainPage : ContentPage
         TimelineCanvas.EndInteraction += (_, _) => TimelineCanvas.EndPointer();
         TimelineCanvas.ClipDragStarted += clip => {
             _dragStart = clip.StartSeconds;
+            _trimStartIn = clip.InSeconds;
+            _trimStartOut = clip.OutSeconds;
             _history.Record(_project);
         };
         TimelineCanvas.ClipDragEnded += clip => {
-            if (_dragStart is double before && Math.Abs(before - clip.StartSeconds) < 0.001)
+            if (_dragStart is double before && Math.Abs(before - clip.StartSeconds) < 0.001 &&
+                _trimStartIn is double initialIn && Math.Abs(initialIn - clip.InSeconds) < 0.001 &&
+                _trimStartOut is double initialOut && Math.Abs(initialOut - clip.OutSeconds) < 0.001)
                 _history.DiscardLast();
+            _trimStartIn = null;
+            _trimStartOut = null;
             _dragStart = null;
             RefreshTimeline();
         };
         TimelineCanvas.ClipSelected += clip => {
             TimelineList.SelectedItem = clip;
             PreviewClip(clip);
+        };
+        TimelineCanvas.PlayheadRequested += seconds => PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+        TimelineCanvas.ClipTrimmed += (clip, left, seconds) =>
+        {
+            try
+            {
+                if (left) AdvancedTimelineEditor.TrimLeft(_project, clip, seconds, RippleCheckBox.IsChecked);
+                else AdvancedTimelineEditor.TrimRight(_project, clip, seconds, RippleCheckBox.IsChecked);
+                RefreshTimeline();
+            }
+            catch (ArgumentException) { }
         };
         TimelineCanvas.ClipMoved += (clip, seconds) => {
             clip.StartSeconds = TimelineEditor.Snap(seconds, _project.Clips, clip.Id);
@@ -236,8 +271,8 @@ public partial class MainPage : ContentPage
         TimelineCanvas.Refresh();
     }
 
-    private void OnPlayClicked(object sender, EventArgs e) => VideoPreview.Play();
-    private void OnPauseClicked(object sender, EventArgs e) => VideoPreview.Pause();
+    private void OnPlayClicked(object sender, EventArgs e) { _previewPlaying = true; VideoPreview.Play(); }
+    private void OnPauseClicked(object sender, EventArgs e) { _previewPlaying = false; VideoPreview.Pause(); }
 
     private async void OnMoveTrackClicked(object sender, EventArgs e)
     {
@@ -296,6 +331,8 @@ public partial class MainPage : ContentPage
 
     private void OnPlayheadChanged(object sender, ValueChangedEventArgs e)
     {
+        TimelineCanvas.PlayheadSeconds = e.NewValue;
+        TimelineCanvas.Refresh();
         PlayheadLabel.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"mm\:ss") +
             " / " + TimeSpan.FromSeconds(_project.DurationSeconds).ToString(@"mm\:ss");
     }
@@ -465,6 +502,32 @@ public partial class MainPage : ContentPage
     {
         StopChunks();
         StatusLabel.Text = "Chunk preview stopped.";
+    }
+
+    private void OnTimelineZoomChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (TimelineCanvas is null) return;
+        TimelineCanvas.PixelsPerSecond = e.NewValue;
+        TimelineCanvas.Refresh();
+    }
+
+    private void OnRippleDeleteClicked(object sender, EventArgs e)
+    {
+        if (TimelineList.SelectedItem is not TimelineClip clip) return;
+        _history.Record(_project);
+        AdvancedTimelineEditor.RippleDelete(_project, clip);
+        RefreshTimeline();
+    }
+
+    private async void OnBuildWaveformsClicked(object sender, EventArgs e)
+    {
+        foreach (var media in _project.Media.Where(m => _project.Clips.Any(c => c.MediaId == m.Id)))
+        {
+            try { TimelineCanvas.Waveforms[media.Id] = await AudioWaveformService.ExtractAsync(media.Path); }
+            catch (Exception) { } // No waveform for sources without audio.
+        }
+        TimelineCanvas.Refresh();
+        StatusLabel.Text = "Waveforms generated for available audio tracks.";
     }
 
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
