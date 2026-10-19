@@ -12,6 +12,21 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+        TimelineCanvas.StartInteraction += (_, e) => {
+            if (e.Touches.Length > 0) TimelineCanvas.BeginPointer(e.Touches[0].X, e.Touches[0].Y);
+        };
+        TimelineCanvas.DragInteraction += (_, e) => {
+            if (e.Touches.Length > 0) TimelineCanvas.MovePointer(e.Touches[0].X);
+        };
+        TimelineCanvas.EndInteraction += (_, _) => TimelineCanvas.EndPointer();
+        TimelineCanvas.ClipSelected += clip => {
+            TimelineList.SelectedItem = clip;
+            PreviewClip(clip);
+        };
+        TimelineCanvas.ClipMoved += (clip, seconds) => {
+            clip.StartSeconds = seconds;
+            StatusLabel.Text = $"Moved {clip.Name} to {seconds:F2}s";
+        };
         BindProject();
     }
 
@@ -20,6 +35,7 @@ public partial class MainPage : ContentPage
         MediaList.ItemsSource = _project.Media;
         TimelineList.ItemsSource = _project.Clips;
         ProjectNameLabel.Text = _project.Name;
+        RefreshTimeline();
     }
 
     private async void OnNewClicked(object sender, EventArgs e)
@@ -93,6 +109,7 @@ public partial class MainPage : ContentPage
             InSeconds = 0,
             OutSeconds = media.DurationSeconds
         });
+        RefreshTimeline();
         StatusLabel.Text = $"Added {media.Name} to timeline.";
     }
 
@@ -101,6 +118,8 @@ public partial class MainPage : ContentPage
         if (e.CurrentSelection.FirstOrDefault() is not TimelineClip clip) return;
         InEntry.Text = clip.InSeconds.ToString(CultureInfo.InvariantCulture);
         OutEntry.Text = clip.OutSeconds.ToString(CultureInfo.InvariantCulture);
+        TrackEntry.Text = clip.TrackIndex.ToString(CultureInfo.InvariantCulture);
+        PreviewClip(clip);
     }
 
     private async void OnApplyTrimClicked(object sender, EventArgs e)
@@ -122,6 +141,7 @@ public partial class MainPage : ContentPage
         clip.OutSeconds = end;
         TimelineList.ItemsSource = null;
         TimelineList.ItemsSource = _project.Clips;
+        RefreshTimeline();
         StatusLabel.Text = "Trim updated.";
     }
 
@@ -130,8 +150,40 @@ public partial class MainPage : ContentPage
         if (TimelineList.SelectedItem is TimelineClip clip)
         {
             _project.Clips.Remove(clip);
+            RefreshTimeline();
             StatusLabel.Text = "Clip removed.";
         }
+    }
+
+    private void RefreshTimeline()
+    {
+        TimelineCanvas.Clips = _project.Clips.ToArray();
+        TimelineCanvas.Refresh();
+    }
+
+    private void PreviewClip(TimelineClip clip)
+    {
+        var media = _project.Media.FirstOrDefault(m => m.Id == clip.MediaId);
+        if (media is null || !File.Exists(media.Path)) return;
+        VideoPreview.SourcePath = media.Path;
+        VideoPreview.PositionSeconds = clip.InSeconds;
+        TimelineCanvas.SelectedId = clip.Id;
+        TimelineCanvas.Refresh();
+    }
+
+    private void OnPlayClicked(object sender, EventArgs e) => VideoPreview.Play();
+    private void OnPauseClicked(object sender, EventArgs e) => VideoPreview.Pause();
+
+    private async void OnMoveTrackClicked(object sender, EventArgs e)
+    {
+        if (TimelineList.SelectedItem is not TimelineClip clip) return;
+        if (!int.TryParse(TrackEntry.Text, out var track) || track < 0 || track > 8)
+        {
+            await DisplayAlert("Track", "Enter a track index from 0 to 8.", "OK");
+            return;
+        }
+        clip.TrackIndex = track;
+        RefreshTimeline();
     }
 
     private async void OnExportClicked(object sender, EventArgs e)
