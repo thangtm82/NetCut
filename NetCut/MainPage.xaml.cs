@@ -44,6 +44,17 @@ public partial class MainPage : ContentPage
             TimelineList.SelectedItem = clip;
             PreviewClip(clip);
         };
+        TimelineCanvas.PlayheadRequested += seconds => PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+        TimelineCanvas.ClipTrimmed += (clip, left, seconds) =>
+        {
+            try
+            {
+                if (left) AdvancedTimelineEditor.TrimLeft(_project, clip, seconds, RippleCheckBox.IsChecked);
+                else AdvancedTimelineEditor.TrimRight(_project, clip, seconds, RippleCheckBox.IsChecked);
+                RefreshTimeline();
+            }
+            catch (ArgumentException) { }
+        };
         TimelineCanvas.ClipMoved += (clip, seconds) => {
             clip.StartSeconds = TimelineEditor.Snap(seconds, _project.Clips, clip.Id);
             StatusLabel.Text = $"Moved {clip.Name} to {seconds:F2}s";
@@ -270,6 +281,8 @@ public partial class MainPage : ContentPage
 
     private void OnPlayheadChanged(object sender, ValueChangedEventArgs e)
     {
+        TimelineCanvas.PlayheadSeconds = e.NewValue;
+        TimelineCanvas.Refresh();
         PlayheadLabel.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"mm\:ss") +
             " / " + TimeSpan.FromSeconds(_project.DurationSeconds).ToString(@"mm\:ss");
     }
@@ -439,6 +452,21 @@ public partial class MainPage : ContentPage
     {
         StopChunks();
         StatusLabel.Text = "Chunk preview stopped.";
+    }
+
+    private void OnTimelineZoomChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (TimelineCanvas is null) return;
+        TimelineCanvas.PixelsPerSecond = e.NewValue;
+        TimelineCanvas.Refresh();
+    }
+
+    private void OnRippleDeleteClicked(object sender, EventArgs e)
+    {
+        if (TimelineList.SelectedItem is not TimelineClip clip) return;
+        _history.Record(_project);
+        AdvancedTimelineEditor.RippleDelete(_project, clip);
+        RefreshTimeline();
     }
 
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
