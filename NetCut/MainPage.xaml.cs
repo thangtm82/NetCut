@@ -184,6 +184,7 @@ public partial class MainPage : ContentPage
         });
         RefreshTimeline();
         _ = PopulateWaveformAsync(media);
+        _ = PopulateFilmstripAsync(media);
         StatusLabel.Text = $"Added {media.Name} to timeline.";
     }
 
@@ -573,6 +574,19 @@ public partial class MainPage : ContentPage
         _history.Record(_project);
         AdvancedTimelineEditor.RippleDelete(_project, clip);
         RefreshTimeline();
+    }
+
+    private async Task PopulateFilmstripAsync(MediaItem media)
+    {
+        if (TimelineCanvas.Filmstrips.ContainsKey(media.Id)) return;
+        try
+        {
+            var frames = await TimelineThumbnailService.ExtractAsync(media.Path, media.DurationSeconds);
+            if (frames.Count == 0) return;
+            TimelineCanvas.Filmstrips[media.Id] = frames;
+            TimelineCanvas.Refresh();
+        }
+        catch (Exception) { /* Missing FFmpeg or unsupported video: keep placeholder tiles. */ }
     }
 
     private async Task PopulateWaveformAsync(MediaItem media)
