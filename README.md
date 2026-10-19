@@ -4,7 +4,7 @@ A **100% C# / XAML user interface** for a Windows video editor inspired by Donke
 
 ## First milestone
 
-- Native .NET MAUI XAML shell (Windows only, .NET 10)
+- Native .NET MAUI XAML shell (Windows only, .NET 9)
 - Media import and FFprobe duration detection
 - Native project and clip data models
 - JSON save/open
@@ -15,13 +15,13 @@ A **100% C# / XAML user interface** for a Windows video editor inspired by Donke
 
 ## Prerequisites
 
-Windows 10/11, .NET 10 SDK and MAUI workload, FFmpeg and FFprobe on PATH. Optionally set `NETCUT_FFMPEG` and `NETCUT_FFPROBE` to full executable paths.
+Windows 10/11, .NET 9 SDK and MAUI workload, FFmpeg and FFprobe on PATH. Optionally set `NETCUT_FFMPEG` and `NETCUT_FFPROBE` to full executable paths.
 
 ## Build
 
 ```powershell
 dotnet workload install maui
-dotnet build .\NetCut\NetCut.csproj -f net10.0-windows10.0.19041.0 -p:WindowsPackageType=None
+dotnet build .\NetCut\NetCut.csproj -f net9.0-windows10.0.19041.0 -p:WindowsPackageType=None
 ```
 
 ## Roadmap
