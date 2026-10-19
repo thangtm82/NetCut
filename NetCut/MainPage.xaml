@@ -11,6 +11,8 @@
       <Button Text="New" Clicked="OnNewClicked"/>
       <Button Text="Open Project" Clicked="OnOpenClicked"/>
       <Button Text="Save Project" Clicked="OnSaveClicked"/>
+      <Button Text="Undo" Clicked="OnUndoClicked"/>
+      <Button Text="Redo" Clicked="OnRedoClicked"/>
       <Button Text="Import Media" Clicked="OnImportClicked"/>
       <Button Text="Export MP4" Clicked="OnExportClicked"/>
     </HorizontalStackLayout>
