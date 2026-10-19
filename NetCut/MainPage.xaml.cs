@@ -258,11 +258,16 @@ public partial class MainPage : ContentPage
         }
     }
 
+    // A Windows GraphicsView draws into a bitmap; keep safely below the 16384-pixel device limit.
+    private const double MaxTimelineCanvasWidth = 8192;
+
+    private double SafeTimelineZoomMaximum => Math.Max(0.01, Math.Min(80, (MaxTimelineCanvasWidth - 250) / Math.Max(1, _project.DurationSeconds)));
+
     private void RefreshTimeline()
     {
         TimelineCanvas.Clips = _project.Clips.ToArray();
         TimelineCanvas.Subtitles = _project.Subtitles.ToArray();
-        TimelineCanvas.WidthRequest = Math.Max(1200, _project.DurationSeconds * TimelineCanvas.PixelsPerSecond + 250);
+        UpdateSafeTimelineSize();
         TimelineCanvas.Refresh();
     }
 
@@ -532,7 +537,7 @@ public partial class MainPage : ContentPage
     private void OnTimelineFitClicked(object sender, EventArgs e)
     {
         double viewport = TimelineScroll.Width > 100 ? TimelineScroll.Width : 900;
-        TimelineZoomSlider.Value = Math.Clamp((viewport - 20) / Math.Max(1, _project.DurationSeconds), 1, 80);
+        TimelineZoomSlider.Value = Math.Clamp((viewport - 20) / Math.Max(1, _project.DurationSeconds), TimelineZoomSlider.Minimum, SafeTimelineZoomMaximum);
     }
 
     private async void OnSubtitleToolClicked(object sender, EventArgs e)
@@ -563,9 +568,22 @@ public partial class MainPage : ContentPage
     private void OnTimelineZoomChanged(object sender, ValueChangedEventArgs e)
     {
         if (TimelineCanvas is null) return;
-        TimelineCanvas.PixelsPerSecond = e.NewValue;
-        TimelineCanvas.WidthRequest = Math.Max(1200, _project.DurationSeconds * e.NewValue + 250);
+        UpdateSafeTimelineSize();
         TimelineCanvas.Refresh();
+    }
+
+    private void UpdateSafeTimelineSize()
+    {
+        if (TimelineCanvas is null || TimelineZoomSlider is null) return;
+        double maxZoom = SafeTimelineZoomMaximum;
+        // Slider.Minimum must remain lower than Maximum; clamp its range for long media.
+        TimelineZoomSlider.Minimum = Math.Min(1, maxZoom / 2);
+        TimelineZoomSlider.Maximum = maxZoom;
+        double zoom = Math.Clamp(TimelineZoomSlider.Value, TimelineZoomSlider.Minimum, maxZoom);
+        if (Math.Abs(TimelineZoomSlider.Value - zoom) > 0.0001) TimelineZoomSlider.Value = zoom;
+        TimelineCanvas.PixelsPerSecond = zoom;
+        TimelineCanvas.WidthRequest = Math.Min(MaxTimelineCanvasWidth,
+            Math.Max(1200, _project.DurationSeconds * zoom + 250));
     }
 
     private void OnRippleDeleteClicked(object sender, EventArgs e)
