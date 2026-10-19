@@ -9,6 +9,7 @@ public partial class MainPage : ContentPage
     private ProjectDocument _project = new();
     private string? _projectPath;
     private readonly ProjectHistory _history = new();
+    private double? _dragStart;
 
     public MainPage()
     {
@@ -20,6 +21,16 @@ public partial class MainPage : ContentPage
             if (e.Touches.Length > 0) TimelineCanvas.MovePointer(e.Touches[0].X);
         };
         TimelineCanvas.EndInteraction += (_, _) => TimelineCanvas.EndPointer();
+        TimelineCanvas.ClipDragStarted += clip => {
+            _dragStart = clip.StartSeconds;
+            _history.Record(_project);
+        };
+        TimelineCanvas.ClipDragEnded += clip => {
+            if (_dragStart is double before && Math.Abs(before - clip.StartSeconds) < 0.001)
+                _history.DiscardLast();
+            _dragStart = null;
+            RefreshTimeline();
+        };
         TimelineCanvas.ClipSelected += clip => {
             TimelineList.SelectedItem = clip;
             PreviewClip(clip);
