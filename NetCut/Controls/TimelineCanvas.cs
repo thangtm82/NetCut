@@ -20,6 +20,8 @@ public sealed class TimelineCanvas : GraphicsView
 
     private TimelineClip? _dragging;
     private double _dragOffset;
+    public event Action<TimelineClip>? ClipDragStarted;
+    public event Action<TimelineClip>? ClipDragEnded;
 
     public void Refresh() => Invalidate();
 
@@ -34,6 +36,7 @@ public sealed class TimelineCanvas : GraphicsView
         if (_dragging is not null)
         {
             _dragOffset = x / PixelsPerSecond - _dragging.StartSeconds;
+            ClipDragStarted?.Invoke(_dragging);
             SelectedId = _dragging.Id;
             ClipSelected?.Invoke(_dragging);
             Invalidate();
@@ -48,7 +51,12 @@ public sealed class TimelineCanvas : GraphicsView
         Invalidate();
     }
 
-    public void EndPointer() => _dragging = null;
+    public void EndPointer()
+    {
+        var clip = _dragging;
+        _dragging = null;
+        if (clip is not null) ClipDragEnded?.Invoke(clip);
+    }
 
     private sealed class TimelinePainter(TimelineCanvas owner) : IDrawable
     {

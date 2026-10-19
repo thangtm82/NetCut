@@ -41,6 +41,11 @@ public sealed class ProjectHistory
         return Restore(_redo.Pop());
     }
 
+    public void DiscardLast()
+    {
+        if (_undo.Count > 0) _undo.Pop();
+    }
+
     public void Clear()
     {
         _undo.Clear();
