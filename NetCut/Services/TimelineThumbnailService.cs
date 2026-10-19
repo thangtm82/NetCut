@@ -7,9 +7,9 @@ namespace NetCut.Services;
 /// <summary>Extracts evenly spaced real video frames via FFmpeg for timeline filmstrips.</summary>
 public static class TimelineThumbnailService
 {
-    public static async Task<List<IImage>> ExtractAsync(string path, double duration, int count = 12)
+    public static async Task<List<Microsoft.Maui.Graphics.IImage>> ExtractAsync(string path, double duration, int count = 12)
     {
-        var result = new List<IImage>();
+        var result = new List<Microsoft.Maui.Graphics.IImage>();
         if (!File.Exists(path) || duration <= 0) return result;
         string ffmpeg = Environment.GetEnvironmentVariable("NETCUT_FFMPEG") is { Length: > 0 } custom ? custom : "ffmpeg";
         string folder = Path.Combine(FileSystem.CacheDirectory, "netcut-filmstrip", Guid.NewGuid().ToString("N"));
