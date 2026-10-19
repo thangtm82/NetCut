@@ -137,8 +137,7 @@ public partial class MainPage : ContentPage
             await DisplayAlert("Trim", "Trim range must be within media duration.", "OK");
             return;
         }
-        clip.InSeconds = start;
-        clip.OutSeconds = end;
+        TimelineEditor.Trim(_project, clip.Id, start, end);
         TimelineList.ItemsSource = null;
         TimelineList.ItemsSource = _project.Clips;
         RefreshTimeline();
@@ -182,30 +181,44 @@ public partial class MainPage : ContentPage
             await DisplayAlert("Track", "Enter a track index from 0 to 8.", "OK");
             return;
         }
-        clip.TrackIndex = track;
+        TimelineEditor.Move(clip, clip.StartSeconds, track);
         RefreshTimeline();
+    }
+
+    private async void OnSplitClicked(object sender, EventArgs e)
+    {
+        if (TimelineList.SelectedItem is not TimelineClip clip)
+        {
+            await DisplayAlert("Split", "Select a timeline clip first.", "OK");
+            return;
+        }
+        var entered = await DisplayPromptAsync("Split clip", "Timeline time in seconds:",
+            initialValue: (clip.StartSeconds + clip.DurationSeconds / 2).ToString(CultureInfo.InvariantCulture));
+        if (entered is null) return;
+        if (!double.TryParse(entered, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            await DisplayAlert("Split", "Invalid timestamp.", "OK");
+            return;
+        }
+        try
+        {
+            var (_, right) = TimelineEditor.Split(_project, clip.Id, seconds);
+            RefreshTimeline();
+            TimelineList.SelectedItem = right;
+            StatusLabel.Text = $"Split {clip.Name} at {seconds:F2}s";
+        }
+        catch (Exception ex) { await ShowError(ex); }
     }
 
     private async void OnExportClicked(object sender, EventArgs e)
     {
-        if (_project.Clips.Count != 1)
-        {
-            await DisplayAlert("Export", "This first milestone exports exactly one selected timeline clip. Multi-clip rendering is next.", "OK");
-            return;
-        }
-        var clip = _project.Clips[0];
-        var media = _project.Media.FirstOrDefault(m => m.Id == clip.MediaId);
-        if (media is null || !File.Exists(media.Path))
-        {
-            await DisplayAlert("Export", "Source media is missing.", "OK");
-            return;
-        }
+        if (_project.Clips.Count == 0) { await DisplayAlert("Export", "No clips on timeline.", "OK"); return; }
         var output = Path.Combine(FileSystem.AppDataDirectory, "exports", SanitizeFileName(_project.Name) + ".mp4");
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             StatusLabel.Text = "Exporting MP4...";
-            await FfmpegService.ExportClipAsync(media, clip, output);
+            await FfmpegService.ExportSequenceAsync(_project, output);
             StatusLabel.Text = $"Export complete: {output}";
             await DisplayAlert("Export complete", output, "OK");
         }

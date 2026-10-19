@@ -41,6 +41,78 @@ public static class FfmpegService
         return duration;
     }
 
+
+    /// <summary>
+    /// Render a cut of sequential clips on V1. Reject overlapping or multi-track layouts
+    /// rather than silently dropping footage. Video sources are normalized to 1280x720/30fps.
+    /// Audio uses optional stream mapping plus a silent track for sources without audio.
+    /// </summary>
+    public static async Task ExportSequenceAsync(ProjectDocument project, string output, CancellationToken ct = default)
+    {
+        var clips = project.Clips.OrderBy(c => c.StartSeconds).ToArray();
+        if (clips.Length == 0) throw new InvalidOperationException("No clips to export.");
+        if (clips.Any(c => c.TrackIndex != 0))
+            throw new NotSupportedException("Multi-layer composition is not implemented. Export supports V1 only.");
+        const double tolerance = 0.04;
+        var cursor = 0d;
+        foreach (var clip in clips)
+        {
+            if (Math.Abs(clip.StartSeconds - cursor) > tolerance)
+                throw new NotSupportedException("Sequence export currently requires clips with no gaps or overlaps.");
+            if (clip.DurationSeconds <= 0) throw new InvalidOperationException("Invalid clip duration.");
+            cursor += clip.DurationSeconds;
+        }
+
+        var directory = Path.Combine(Path.GetTempPath(), "NetCut", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var normalized = new List<string>();
+        var ci = CultureInfo.InvariantCulture;
+        try
+        {
+            for (var i = 0; i < clips.Length; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var clip = clips[i];
+                var media = project.Media.FirstOrDefault(m => m.Id == clip.MediaId)
+                    ?? throw new FileNotFoundException("Timeline media reference missing.");
+                if (!File.Exists(media.Path)) throw new FileNotFoundException("Source media missing.", media.Path);
+                var segment = Path.Combine(directory, $"segment-{i:D4}.mp4");
+                // A silent input provides consistent stereo audio when source audio is absent.
+                var hasAudio = await ProbeHasAudioAsync(media.Path, ct);
+                var args = new List<string> { "-hide_banner", "-y", "-ss", clip.InSeconds.ToString(ci),
+                    "-i", media.Path };
+                if (!hasAudio)
+                    args.AddRange(["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]);
+                args.AddRange(["-t", clip.DurationSeconds.ToString(ci), "-map", "0:v:0",
+                    "-map", hasAudio ? "0:a:0" : "1:a:0",
+                    "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "20",
+                    "-c:a", "aac", "-ar", "48000", "-ac", "2", "-shortest", segment]);
+                await RunAsync(Executable("NETCUT_FFMPEG", "ffmpeg"), args, ct);
+                normalized.Add(segment);
+            }
+            // Concat demuxer consumes filenames from a temporary list of known files.
+            var listPath = Path.Combine(directory, "concat.txt");
+            await File.WriteAllLinesAsync(listPath,
+                normalized.Select(f => "file '" + f.Replace("'", "'\\''") + "'"), ct);
+            await RunAsync(Executable("NETCUT_FFMPEG", "ffmpeg"),
+                ["-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", listPath,
+                 "-c", "copy", "-movflags", "+faststart", output], ct);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static async Task<bool> ProbeHasAudioAsync(string path, CancellationToken ct)
+    {
+        var output = await RunAsync(Executable("NETCUT_FFPROBE", "ffprobe"),
+            ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index",
+             "-of", "csv=p=0", path], ct);
+        return !string.IsNullOrWhiteSpace(output);
+    }
+
     public static Task ExportClipAsync(MediaItem media, TimelineClip clip, string output, CancellationToken ct = default)
     {
         if (clip.OutSeconds <= clip.InSeconds) throw new ArgumentException("Clip out must be greater than in.");
