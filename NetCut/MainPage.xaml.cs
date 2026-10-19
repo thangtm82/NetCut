@@ -75,6 +75,7 @@ public partial class MainPage : ContentPage
     {
         var name = await DisplayPromptAsync("New project", "Project name", initialValue: "Untitled Project");
         if (name is null) return;
+        StopChunks();
         _project = new ProjectDocument { Name = string.IsNullOrWhiteSpace(name) ? "Untitled Project" : name.Trim() };
         _projectPath = null;
         _history.Clear();
@@ -88,6 +89,7 @@ public partial class MainPage : ContentPage
         {
             var file = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = "Open NetCut JSON project" });
             if (file is null) return;
+            StopChunks();
             _project = await ProjectService.LoadAsync(file.FullPath);
             _projectPath = file.FullPath;
             _history.Clear();
