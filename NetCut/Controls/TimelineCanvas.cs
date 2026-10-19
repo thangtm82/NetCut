@@ -15,6 +15,7 @@ public sealed class TimelineCanvas : GraphicsView
     public double PixelsPerSecond { get; set; } = 4;
     public string? SelectedId { get; set; }
     public IReadOnlyList<SubtitleCue> Subtitles { get; set; } = Array.Empty<SubtitleCue>();
+    public Dictionary<string, List<IImage>> Filmstrips { get; } = new();
 
     public event Action<TimelineClip>? ClipSelected;
     public event Action<TimelineClip, double>? ClipMoved;
@@ -111,15 +112,27 @@ public sealed class TimelineCanvas : GraphicsView
                 bool selected = clip.Id == owner.SelectedId;
                 canvas.FillColor = Color.FromArgb(selected ? "#448FC7" : "#CDD6E0");
                 canvas.FillRoundedRectangle(x, videoY + 2, width, 56, 2);
-                canvas.FillColor = Color.FromArgb("#869DB0");
-                for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                if (owner.Filmstrips.TryGetValue(clip.MediaId, out var frames) && frames.Count > 0)
                 {
-                    float cellW = Math.Min(34, x + width - 3 - cellX);
-                    if (cellW < 1) break;
-                    canvas.FillRoundedRectangle(cellX, videoY + 5, cellW, 48, 1);
-                    canvas.FillColor = Color.FromArgb("#A8B9C8");
-                    canvas.FillRectangle(cellX + 2, videoY + 7, Math.Max(1, cellW - 4), 44);
+                    for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                    {
+                        float cellW = Math.Min(34, x + width - 3 - cellX);
+                        if (cellW < 1) break;
+                        double elapsed = (cellX - x) / scale;
+                        double sourcePosition = clip.InSeconds + elapsed;
+                        int index = (int)Math.Clamp(sourcePosition / Math.Max(.001, clip.OutSeconds) * frames.Count, 0, frames.Count - 1);
+                        canvas.DrawImage(frames[index], cellX, videoY + 5, cellW, 48);
+                    }
+                }
+                else
+                {
                     canvas.FillColor = Color.FromArgb("#869DB0");
+                    for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                    {
+                        float cellW = Math.Min(34, x + width - 3 - cellX);
+                        if (cellW < 1) break;
+                        canvas.FillRoundedRectangle(cellX, videoY + 5, cellW, 48, 1);
+                    }
                 }
                 canvas.FontColor = Colors.White;
                 canvas.FontSize = 10;
