@@ -21,7 +21,7 @@ public static class TimelineShortcuts
     private static void Add(FrameworkElement root, VirtualKey key,
         VirtualKeyModifiers modifiers, Action command)
     {
-        var accelerator = new KeyboardAccelerator { Key = key, Modifiers = modifiers };
+        var accelerator = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = key, Modifiers = modifiers };
         accelerator.Invoked += (_, e) => { command(); e.Handled = true; };
         root.KeyboardAccelerators.Add(accelerator);
     }
