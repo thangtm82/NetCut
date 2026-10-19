@@ -65,12 +65,13 @@ public sealed class ChunkPreviewCache
                 });
             }
             // The existing compositor needs at least one clip.
-            if (proxy.Clips.Count == 0)
-                throw new NotSupportedException("Rendering an entirely empty timeline interval requires a silent filler.");
+            var empty = proxy.Clips.Count == 0;
             var temp = Path.Combine(_root, Guid.NewGuid().ToString("N") + ".mp4");
             try
             {
-                await FfmpegService.ExportCompositionAsync(proxy, temp, ct);
+                if (empty) await RenderBlankAsync(temp, end - from, ct);
+                else await FfmpegService.ExportCompositionAsync(proxy, temp, ct,
+                    minimumDurationSeconds: end - from);
                 ct.ThrowIfCancellationRequested();
                 File.Move(temp, target, true);
                 Evict();
@@ -79,6 +80,37 @@ public sealed class ChunkPreviewCache
             finally { if (File.Exists(temp)) File.Delete(temp); }
         }
         finally { _renderLock.Release(); }
+    }
+
+
+    private static async Task RenderBlankAsync(string output, double duration, CancellationToken ct)
+    {
+        var binary = Environment.GetEnvironmentVariable("NETCUT_FFMPEG") is { Length: > 0 } ffmpeg
+            ? ffmpeg : "ffmpeg";
+        var info = new System.Diagnostics.ProcessStartInfo(binary)
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardError = true, RedirectStandardOutput = true
+        };
+        foreach (var arg in new[] {
+            "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720:r=30",
+            "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+            "-t", duration.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-shortest", output })
+            info.ArgumentList.Add(arg);
+        using var process = System.Diagnostics.Process.Start(info)
+            ?? throw new InvalidOperationException("Unable to launch FFmpeg.");
+        using var registration = ct.Register(() => {
+            try { if (!process.HasExited) process.Kill(true); }
+            catch (InvalidOperationException) { }
+        });
+        var stderr = process.StandardError.ReadToEndAsync();
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync(ct);
+        await stdout;
+        ct.ThrowIfCancellationRequested();
+        if (process.ExitCode != 0) throw new InvalidOperationException(await stderr);
     }
 
     private void Evict()
