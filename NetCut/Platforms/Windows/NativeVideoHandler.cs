@@ -9,6 +9,7 @@ namespace NetCut.Platforms.Windows;
 public sealed class NativeVideoHandler : ViewHandler<NativeVideoView, MediaPlayerElement>
 {
     private MediaPlayer? _player;
+    private DateTime _lastPositionReport = DateTime.MinValue;
 
     public static readonly IPropertyMapper<NativeVideoView, NativeVideoHandler> Mapper =
         new PropertyMapper<NativeVideoView, NativeVideoHandler>(ViewMapper)
@@ -29,6 +30,17 @@ public sealed class NativeVideoHandler : ViewHandler<NativeVideoView, MediaPlaye
     protected override MediaPlayerElement CreatePlatformView()
     {
         _player = new MediaPlayer { AutoPlay = false };
+        _player.PlaybackSession.PositionChanged += (_, _) =>
+        {
+            if (DateTime.UtcNow - _lastPositionReport < TimeSpan.FromMilliseconds(120)) return;
+            _lastPositionReport = DateTime.UtcNow;
+            var seconds = _player?.PlaybackSession.Position.TotalSeconds ?? 0;
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(
+                () => VirtualView?.NotifyPosition(seconds));
+        };
+        _player.MediaEnded += (_, _) =>
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(
+                () => VirtualView?.NotifyEnded());
         var view = new MediaPlayerElement
         {
             AreTransportControlsEnabled = true,

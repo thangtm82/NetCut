@@ -115,7 +115,8 @@ public static class FfmpegService
 
 
     public static async Task ExportCompositionAsync(ProjectDocument project, string output,
-        CancellationToken ct = default, IProgress<double>? progress = null)
+        CancellationToken ct = default, IProgress<double>? progress = null,
+        double? minimumDurationSeconds = null)
     {
         var types = new Dictionary<string, (bool Video, bool Audio)>();
         foreach (var media in project.Media.Where(m => project.Clips.Any(c => c.MediaId == m.Id)))
@@ -125,7 +126,8 @@ public static class FfmpegService
             types[media.Id] = (video, audio);
         }
         var items = CompositionPlan.Validate(project, types);
-        var duration = items.Max(item => item.Clip.StartSeconds + item.Clip.DurationSeconds);
+        var duration = Math.Max(items.Max(item => item.Clip.StartSeconds + item.Clip.DurationSeconds),
+            minimumDurationSeconds ?? 0);
         var args = new List<string> { "-hide_banner", "-y" };
         var ci = CultureInfo.InvariantCulture;
         foreach (var item in items)

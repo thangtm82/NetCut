@@ -21,6 +21,12 @@ public sealed class NativeVideoView : View
         set => SetValue(PositionSecondsProperty, value);
     }
 
+    public event EventHandler<double>? PlaybackPositionChanged;
+    public event EventHandler? PlaybackEnded;
+
+    internal void NotifyPosition(double seconds) => PlaybackPositionChanged?.Invoke(this, seconds);
+    internal void NotifyEnded() => PlaybackEnded?.Invoke(this, EventArgs.Empty);
+
     public void Play() => Handler?.Invoke(nameof(Play));
     public void Pause() => Handler?.Invoke(nameof(Pause));
 }

@@ -41,6 +41,10 @@
           <Image x:Name="CompositedFrame" HeightRequest="260" IsVisible="False" Aspect="AspectFit"/>
           <Button Text="Render Composite Frame" Clicked="OnRenderFrameClicked"/>
           <Button x:Name="PreviewSegmentButton" Text="Play 5s Composed Preview" Clicked="OnPreviewSegmentClicked"/>
+          <Button x:Name="ContinuousPreviewButton" Text="Play Full Timeline (Cached)" Clicked="OnContinuousPreviewClicked"/>
+          <Button Text="Stop Preview" Clicked="OnStopContinuousPreviewClicked"/>
+          <Button Text="Play Cached Chunks" Clicked="OnPlayChunksClicked"/>
+          <Button Text="Stop Chunks" Clicked="OnStopChunksClicked"/>
           <HorizontalStackLayout Spacing="8">
             <Button Text="Play" Clicked="OnPlayClicked"/>
             <Button Text="Pause" Clicked="OnPauseClicked"/>

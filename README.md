@@ -70,3 +70,39 @@ unity gain and might clip; output is fixed at 1280x720, 30fps, H.264/AAC.
 Overlapping clips on the same track have deterministic sequential ordering,
 not a fully-defined video-editor z-order. Large projects may be slow.
 This feature has not yet passed a Windows build or end-to-end video test.
+
+
+## Phase 8: cached continuous timeline preview (experimental)
+
+The **Play Full Timeline (Cached)** button exports a temporary complete composite
+as an MP4 and plays it through the native WinUI media player. A SHA-256 cache
+key includes clip timing, track order, and source file size/modification time;
+repeated plays reuse the same rendered MP4. The Stop Preview button pauses
+playback and cancels an in-flight render.
+
+**Current limitations:** first playback requires rendering the entire timeline;
+there is no chunked background prefetch or partial cache invalidation. Native
+transport controls can seek within the rendered MP4, but the MAUI playhead
+slider is not continuously updated from actual playback position. Media changes
+not reflected by file size/mtime may evade invalidation. Cache eviction is not
+automatic. Audio/video sync depends on experimental FFmpeg compositor output.
+Windows runtime validation is still needed.
+
+
+### Phase 8 chunk preview (experimental)
+
+Use **Play Cached Chunks** to start a five-second timeline-chunk playback
+at the slider position. Each chunk has a content-addressed cache identity
+computed from intersecting clips and source file modification metadata.
+The next chunk is prefetched before playback reaches the boundary.
+WinUI PlaybackSession reports the current position to the MAUI slider;
+the next chunk starts when MediaEnded fires. Preview cache uses an
+approximate 2 GiB least-recently-used cleanup policy. Entirely empty
+intervals render black and silent, and trailing gaps are preserved.
+
+**Caveats:** Chunk transitions can stutter if FFmpeg is still rendering;
+there is no seamless buffered playlist or GPU-accelerated live compositor.
+Audio continuity at segment boundaries, caching under concurrent edits,
+player seek/position behavior and background task cancellation require
+Windows runtime testing. A successful CI build alone does not guarantee
+accurate playback. The old full-timeline cache mode remains available.
