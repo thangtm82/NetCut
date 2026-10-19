@@ -21,10 +21,26 @@ public partial class MainPage : ContentPage
     private int _activeChunk = -1;
     private bool _chunkPlayback;
     private double _chunkOffset;
+    private bool _shortcutsAttached;
+    private bool _previewPlaying;
 
     public MainPage()
     {
         InitializeComponent();
+#if WINDOWS
+        HandlerChanged += (_, _) =>
+        {
+            if (_shortcutsAttached || Handler?.PlatformView is not Microsoft.UI.Xaml.FrameworkElement root) return;
+            _shortcutsAttached = true;
+            NetCut.Platforms.Windows.TimelineShortcuts.Attach(root,
+                () => OnUndoClicked(this, EventArgs.Empty),
+                () => OnRedoClicked(this, EventArgs.Empty),
+                () => OnSaveClicked(this, EventArgs.Empty),
+                () => { if (_previewPlaying) OnPauseClicked(this, EventArgs.Empty); else OnPlayClicked(this, EventArgs.Empty); },
+                () => OnRemoveClipClicked(this, EventArgs.Empty),
+                () => OnSplitClicked(this, EventArgs.Empty));
+        };
+#endif
         TimelineCanvas.StartInteraction += (_, e) => {
             if (e.Touches.Length > 0) TimelineCanvas.BeginPointer(e.Touches[0].X, e.Touches[0].Y);
         };
@@ -229,8 +245,8 @@ public partial class MainPage : ContentPage
         TimelineCanvas.Refresh();
     }
 
-    private void OnPlayClicked(object sender, EventArgs e) => VideoPreview.Play();
-    private void OnPauseClicked(object sender, EventArgs e) => VideoPreview.Pause();
+    private void OnPlayClicked(object sender, EventArgs e) { _previewPlaying = true; VideoPreview.Play(); }
+    private void OnPauseClicked(object sender, EventArgs e) { _previewPlaying = false; VideoPreview.Pause(); }
 
     private async void OnMoveTrackClicked(object sender, EventArgs e)
     {
