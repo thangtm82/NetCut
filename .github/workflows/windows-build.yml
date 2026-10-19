@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      - name: Install MAUI workload
-        run: dotnet workload install maui
+      - name: Install Windows-only MAUI workload
+        run: dotnet workload install maui-windows
       - name: Restore and compile
         run: dotnet build NetCut/NetCut.csproj -f net9.0-windows10.0.19041.0 -c Release -p:WindowsPackageType=None
