@@ -61,7 +61,7 @@ public sealed class TimelineCanvas : GraphicsView
         if (_dragging is null) return;
         var time = Math.Max(0, XToSeconds(x) - _dragOffset);
         if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
-        else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, x / PixelsPerSecond));
+        else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, XToSeconds(x)));
         Invalidate();
     }
 
