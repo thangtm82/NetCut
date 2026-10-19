@@ -53,6 +53,7 @@
           <Label Text="Out point (seconds)" TextColor="White"/>
           <Entry x:Name="OutEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
           <Button Text="Apply Trim to Selected Clip" Clicked="OnApplyTrimClicked"/>
+          <Button Text="Split Selected Clip" Clicked="OnSplitClicked"/>
           <Button Text="Remove Clip" Clicked="OnRemoveClipClicked"/>
           <Label Text="Track (0 = V1)" TextColor="White"/>
           <Entry x:Name="TrackEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
