@@ -183,6 +183,8 @@ public partial class MainPage : ContentPage
             OutSeconds = media.DurationSeconds
         });
         RefreshTimeline();
+        _ = PopulateWaveformAsync(media);
+        _ = PopulateFilmstripAsync(media);
         StatusLabel.Text = $"Added {media.Name} to timeline.";
     }
 
@@ -209,6 +211,7 @@ public partial class MainPage : ContentPage
         _project.Clips.Add(clip);
         RefreshTimeline();
         TimelineList.SelectedItem = clip;
+        _ = PopulateWaveformAsync(media);
         StatusLabel.Text = $"Dropped {media.Name} onto track {track + 1} at {clip.StartSeconds:F2}s.";
     }
 
@@ -258,6 +261,8 @@ public partial class MainPage : ContentPage
     private void RefreshTimeline()
     {
         TimelineCanvas.Clips = _project.Clips.ToArray();
+        TimelineCanvas.Subtitles = _project.Subtitles.ToArray();
+        TimelineCanvas.WidthRequest = Math.Max(1200, _project.DurationSeconds * TimelineCanvas.PixelsPerSecond + 250);
         TimelineCanvas.Refresh();
     }
 
@@ -332,6 +337,7 @@ public partial class MainPage : ContentPage
     private void OnPlayheadChanged(object sender, ValueChangedEventArgs e)
     {
         TimelineCanvas.PlayheadSeconds = e.NewValue;
+        if (TimelineTimeLabel is not null) TimelineTimeLabel.Text = FormatTimelineTime(e.NewValue) + " / " + FormatTimelineTime(_project.DurationSeconds);
         TimelineCanvas.Refresh();
         PlayheadLabel.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"mm\:ss") +
             " / " + TimeSpan.FromSeconds(_project.DurationSeconds).ToString(@"mm\:ss");
@@ -504,10 +510,61 @@ public partial class MainPage : ContentPage
         StatusLabel.Text = "Chunk preview stopped.";
     }
 
+    private static string FormatTimelineTime(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return ts.Hours > 0 ? ts.ToString(@"h\:mm\:ss\.ff") : ts.ToString(@"m\:ss\.ff");
+    }
+
+    private void OnTimelineBeginningClicked(object sender, EventArgs e)
+    {
+        PlayheadSlider.Value = 0;
+        OnSeekClicked(sender, e);
+    }
+
+    private void OnTimelinePlayPauseClicked(object sender, EventArgs e)
+    {
+        if (_previewPlaying) OnPauseClicked(sender, e);
+        else OnPlayClicked(sender, e);
+        TimelinePlayButton.Text = _previewPlaying ? "Ⅱ" : "▶";
+    }
+
+    private void OnTimelineFitClicked(object sender, EventArgs e)
+    {
+        double viewport = TimelineScroll.Width > 100 ? TimelineScroll.Width : 900;
+        TimelineZoomSlider.Value = Math.Clamp((viewport - 20) / Math.Max(1, _project.DurationSeconds), 1, 80);
+    }
+
+    private async void OnSubtitleToolClicked(object sender, EventArgs e)
+    {
+        var text = await DisplayPromptAsync("Subtitle", "Subtitle text at the playhead:");
+        if (string.IsNullOrWhiteSpace(text)) return;
+        _history.Record(_project);
+        var start = PlayheadSlider.Value;
+        _project.Subtitles.Add(new SubtitleCue { Start = start, End = Math.Min(Math.Max(start + 3, _project.DurationSeconds), start + 3), Text = text });
+        RefreshTimeline();
+    }
+
+    private void OnSplitAtPlayheadClicked(object sender, EventArgs e)
+    {
+        var pos = PlayheadSlider.Value;
+        var clip = _project.Clips.Where(c => c.StartSeconds < pos && pos < c.StartSeconds + c.DurationSeconds)
+            .OrderByDescending(c => c.TrackIndex).FirstOrDefault();
+        if (clip is null) return;
+        try
+        {
+            _history.Record(_project);
+            TimelineEditor.Split(_project, clip.Id, pos);
+            RefreshTimeline();
+        }
+        catch (ArgumentException ex) { StatusLabel.Text = ex.Message; }
+    }
+
     private void OnTimelineZoomChanged(object sender, ValueChangedEventArgs e)
     {
         if (TimelineCanvas is null) return;
         TimelineCanvas.PixelsPerSecond = e.NewValue;
+        TimelineCanvas.WidthRequest = Math.Max(1200, _project.DurationSeconds * e.NewValue + 250);
         TimelineCanvas.Refresh();
     }
 
@@ -517,6 +574,31 @@ public partial class MainPage : ContentPage
         _history.Record(_project);
         AdvancedTimelineEditor.RippleDelete(_project, clip);
         RefreshTimeline();
+    }
+
+    private async Task PopulateFilmstripAsync(MediaItem media)
+    {
+        if (TimelineCanvas.Filmstrips.ContainsKey(media.Id)) return;
+        try
+        {
+            var frames = await TimelineThumbnailService.ExtractAsync(media.Path, media.DurationSeconds);
+            if (frames.Count == 0) return;
+            TimelineCanvas.Filmstrips[media.Id] = frames;
+            TimelineCanvas.Refresh();
+        }
+        catch (Exception) { /* Missing FFmpeg or unsupported video: keep placeholder tiles. */ }
+    }
+
+    private async Task PopulateWaveformAsync(MediaItem media)
+    {
+        if (TimelineCanvas.Waveforms.ContainsKey(media.Id)) return;
+        try
+        {
+            var peaks = await AudioWaveformService.ExtractAsync(media.Path, buckets: 1200);
+            TimelineCanvas.Waveforms[media.Id] = peaks;
+            TimelineCanvas.Refresh();
+        }
+        catch (Exception) { /* Silent media or unavailable FFmpeg: show empty audio lane. */ }
     }
 
     private async void OnBuildWaveformsClicked(object sender, EventArgs e)

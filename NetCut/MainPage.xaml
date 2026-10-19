@@ -5,7 +5,7 @@
              x:Class="NetCut.MainPage"
              Title="NetCut"
              BackgroundColor="#15171B">
-  <Grid RowDefinitions="Auto,*,220,Auto" Padding="14" RowSpacing="12">
+  <Grid RowDefinitions="Auto,*,205,Auto" Padding="14" RowSpacing="12">
     <HorizontalStackLayout Spacing="10" Grid.Row="0">
       <Label Text="NETCUT" FontSize="26" FontAttributes="Bold" TextColor="#F5F7FA" VerticalOptions="Center"/>
       <Button Text="New" Clicked="OnNewClicked"/>
@@ -76,22 +76,46 @@
       </Border>
     </Grid>
 
-    <Border Grid.Row="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
-      <Grid RowDefinitions="Auto,*" RowSpacing="6">
-        <HorizontalStackLayout Spacing="10"><Label Text="TIMELINE (CLIPS)" TextColor="White" FontAttributes="Bold"/><CheckBox x:Name="RippleCheckBox"/><Label Text="Ripple" TextColor="White"/><Label Text="Zoom" TextColor="White"/><Slider x:Name="TimelineZoomSlider" Minimum="15" Maximum="120" Value="35" WidthRequest="180" ValueChanged="OnTimelineZoomChanged"/><Button Text="Ripple Delete" Clicked="OnRippleDeleteClicked"/><Button Text="Build Waveforms" Clicked="OnBuildWaveformsClicked"/></HorizontalStackLayout>
-        <CollectionView x:Name="TimelineList" Grid.Row="1" HeightRequest="60" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged">
-          <CollectionView.ItemTemplate>
-            <DataTemplate>
-              <Border BackgroundColor="#166F61" Padding="12" Margin="2">
-                <Label Text="{Binding Name}" TextColor="White"/>
-              </Border>
-            </DataTemplate>
-          </CollectionView.ItemTemplate>
-        </CollectionView>
-        <ScrollView x:Name="TimelineScroll" Orientation="Horizontal" Grid.Row="1" Margin="0,65,0,0">
-          <ScrollView.GestureRecognizers><DropGestureRecognizer AllowDrop="True" Drop="OnMediaDropped"/></ScrollView.GestureRecognizers>
-          <controls:TimelineCanvas x:Name="TimelineCanvas" WidthRequest="4000"/>
-        </ScrollView>
+    <Border Grid.Row="2" BackgroundColor="#F7F8FA" StrokeThickness="0" Padding="0">
+      <Grid RowDefinitions="36,28,*" RowSpacing="0">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,0" BackgroundColor="#FFFFFF">
+          <HorizontalStackLayout Grid.Column="0" Spacing="10" VerticalOptions="Center">
+            <Label Text="Main ▾" TextColor="#171C26" FontAttributes="Bold" VerticalTextAlignment="Center"/>
+            <Button Text="T" Clicked="OnSubtitleToolClicked" Padding="6,0" BackgroundColor="Transparent" TextColor="#222B35"/>
+            <Button Text="✂" Clicked="OnSplitAtPlayheadClicked" Padding="6,0" BackgroundColor="Transparent" TextColor="#222B35"/>
+          </HorizontalStackLayout>
+          <HorizontalStackLayout Grid.Column="1" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
+            <Button Text="|◀" Clicked="OnTimelineBeginningClicked" Padding="4,0" BackgroundColor="Transparent" TextColor="#20242A"/>
+            <Button x:Name="TimelinePlayButton" Text="▶" Clicked="OnTimelinePlayPauseClicked" Padding="8,0" BackgroundColor="#15191F" TextColor="White"/>
+            <Label x:Name="TimelineTimeLabel" Text="0:00.00 / 0:00.00" TextColor="#25364B" FontSize="12" VerticalTextAlignment="Center"/>
+          </HorizontalStackLayout>
+          <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+            <Label Text="Zoom" TextColor="#364152" VerticalTextAlignment="Center"/>
+            <Slider x:Name="TimelineZoomSlider" Minimum="1" Maximum="80" Value="4" WidthRequest="130" ValueChanged="OnTimelineZoomChanged"/>
+            <Button Text="Fit" Clicked="OnTimelineFitClicked" Padding="8,0" BackgroundColor="#E8EDF3" TextColor="#25364B"/>
+            <CheckBox x:Name="RippleCheckBox" Color="#248CF5"/>
+            <Label Text="Ripple" TextColor="#364152" VerticalTextAlignment="Center"/>
+            <Button Text="Waveform" Clicked="OnBuildWaveformsClicked" Padding="7,0" BackgroundColor="#E8EDF3" TextColor="#25364B"/>
+            <Button Text="Ripple Delete" Clicked="OnRippleDeleteClicked" Padding="7,0" BackgroundColor="#E8EDF3" TextColor="#25364B"/>
+          </HorizontalStackLayout>
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="26,*" BackgroundColor="#FFFFFF">
+          <Label Grid.Column="0" Text="☰" TextColor="#7A8390" HorizontalTextAlignment="Center" VerticalTextAlignment="Center"/>
+          <Label Grid.Column="1" Text="Drag clips • trim edges • click ruler to seek" FontSize="10" TextColor="#7C8793" VerticalTextAlignment="Center" Margin="4,0"/>
+        </Grid>
+        <Grid Grid.Row="2" ColumnDefinitions="26,*" BackgroundColor="#F4F5F7">
+          <CollectionView x:Name="TimelineList" IsVisible="False" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged" />
+          <Grid Grid.Column="0" RowDefinitions="26,60,28,28" BackgroundColor="#F0F2F5">
+            <Label Grid.Row="0" Text="◉" TextColor="#77818E" HorizontalTextAlignment="Center"/>
+            <Label Grid.Row="1" Text="◉" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
+            <Label Grid.Row="2" Text="♫" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
+            <Label Grid.Row="3" Text="T" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
+          </Grid>
+          <ScrollView x:Name="TimelineScroll" Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Always">
+            <ScrollView.GestureRecognizers><DropGestureRecognizer AllowDrop="True" Drop="OnMediaDropped"/></ScrollView.GestureRecognizers>
+            <controls:TimelineCanvas x:Name="TimelineCanvas" WidthRequest="4000"/>
+          </ScrollView>
+        </Grid>
       </Grid>
     </Border>
 

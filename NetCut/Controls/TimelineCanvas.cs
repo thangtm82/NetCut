@@ -8,12 +8,14 @@ public sealed class TimelineCanvas : GraphicsView
     public TimelineCanvas()
     {
         Drawable = new TimelinePainter(this);
-        HeightRequest = 230;
+        HeightRequest = 154;
     }
 
     public IReadOnlyList<TimelineClip> Clips { get; set; } = Array.Empty<TimelineClip>();
-    public double PixelsPerSecond { get; set; } = 35;
+    public double PixelsPerSecond { get; set; } = 4;
     public string? SelectedId { get; set; }
+    public IReadOnlyList<SubtitleCue> Subtitles { get; set; } = Array.Empty<SubtitleCue>();
+    public Dictionary<string, List<Microsoft.Maui.Graphics.IImage>> Filmstrips { get; } = new();
 
     public event Action<TimelineClip>? ClipSelected;
     public event Action<TimelineClip, double>? ClipMoved;
@@ -32,10 +34,10 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void BeginPointer(double x, double y)
     {
-        // 36px ruler; 54px per track.
-        if (y < 36) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
-        var trackIndex = (int)((y - 36) / 54);
-        _dragging = Clips.LastOrDefault(c => c.TrackIndex == trackIndex &&
+        // 42px ruler; 82px per track.
+        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
+        if (y >= 86) return;
+        _dragging = Clips.OrderBy(c => c.TrackIndex).LastOrDefault(c =>
             x >= c.StartSeconds * PixelsPerSecond &&
             x <= (c.StartSeconds + c.DurationSeconds) * PixelsPerSecond);
         if (_dragging is not null)
@@ -71,55 +73,106 @@ public sealed class TimelineCanvas : GraphicsView
     {
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
-            canvas.FillColor = Color.FromArgb("#20242A");
+            const float ruler = 26;
+            const float videoY = 26;
+            const float audioY = 86;
+            const float captionsY = 114;
+            float scale = (float)Math.Max(.1, owner.PixelsPerSecond);
+            canvas.FillColor = Color.FromArgb("#F7F8FA");
             canvas.FillRectangle(dirtyRect);
-            float scale = (float)owner.PixelsPerSecond;
-            int tracks = Math.Max(3, owner.Clips.Count == 0 ? 0 : owner.Clips.Max(c => c.TrackIndex) + 1);
-            for (int s = 0; s < dirtyRect.Width / scale + 2; s += 5)
+            canvas.FillColor = Colors.White;
+            canvas.FillRectangle(0, 0, dirtyRect.Width, ruler);
+            double step = scale < 2 ? 120 : scale < 5 ? 120 : scale < 15 ? 30 : 10;
+            for (double t = 0; t < dirtyRect.Width / scale + step; t += step / 4)
             {
-                float x = s * scale;
-                canvas.StrokeColor = Color.FromArgb("#505762");
-                canvas.DrawLine(x, 0, x, dirtyRect.Height);
-                canvas.FontColor = Colors.White;
-                canvas.FontSize = 11;
-                canvas.DrawString(TimeSpan.FromSeconds(s).ToString(@"mm\:ss"), x + 3, 5, 55, 20, HorizontalAlignment.Left, VerticalAlignment.Center);
-            }
-            for (int i = 0; i < tracks; i++)
-            {
-                float y = 36 + i * 54;
-                canvas.FillColor = i % 2 == 0 ? Color.FromArgb("#292F38") : Color.FromArgb("#252A32");
-                canvas.FillRectangle(0, y, dirtyRect.Width, 52);
-                canvas.FontColor = Colors.White;
-                canvas.FontSize = 10;
-                canvas.DrawString($"V{i+1}", 3, y + 3, 30, 18, HorizontalAlignment.Left, VerticalAlignment.Center);
-            }
-            canvas.StrokeColor = Colors.OrangeRed;
-            float px = (float)(owner.PlayheadSeconds * owner.PixelsPerSecond);
-            canvas.DrawLine(px, 0, px, dirtyRect.Height);
-            foreach (var clip in owner.Clips)
-            {
-                float x = (float)(clip.StartSeconds * owner.PixelsPerSecond);
-                float y = 36 + clip.TrackIndex * 54 + 3;
-                float width = (float)Math.Max(5, clip.DurationSeconds * owner.PixelsPerSecond);
-                canvas.FillColor = clip.Id == owner.SelectedId ? Color.FromArgb("#18A999") : Color.FromArgb("#167867");
-                canvas.FillRoundedRectangle(x, y, width, 46, 6);
-                canvas.FillColor = Colors.White;
-                canvas.FillRectangle(x, y + 5, 3, 34);
-                canvas.FillRectangle(x + width - 3, y + 5, 3, 34);
-                canvas.FontColor = Colors.White;
-                canvas.FontSize = 12;
-                canvas.DrawString(clip.Name, x + 6, y + 2, width - 12, 17, HorizontalAlignment.Left, VerticalAlignment.Center);
-                if (owner.Waveforms.TryGetValue(clip.MediaId, out var peaks) && peaks.Length > 0)
+                float x = (float)(t * scale);
+                bool major = Math.Abs(t / step - Math.Round(t / step)) < .001;
+                canvas.StrokeColor = Color.FromArgb(major ? "#C6CBD2" : "#E2E5E9");
+                canvas.StrokeSize = 1;
+                canvas.DrawLine(x, major ? 5 : 17, x, 26);
+                if (major)
                 {
-                    canvas.StrokeColor = Colors.LightGreen;
-                    for (var i = 0; i < peaks.Length; i++)
-                    {
-                        var sampleX = x + 5 + (width - 10) * i / peaks.Length;
-                        var amplitude = peaks[i] * 10;
-                        canvas.DrawLine(sampleX, y + 34 - amplitude, sampleX, y + 34 + amplitude);
-                    }
+                    canvas.FontColor = Color.FromArgb("#586270");
+                    canvas.FontSize = 10;
+                    canvas.DrawString(TimeSpan.FromSeconds(t).ToString(@"h\:mm\:ss"),
+                        x + 3, 0, 86, 15, HorizontalAlignment.Left, VerticalAlignment.Center);
                 }
             }
+            canvas.FillColor = Color.FromArgb("#E9EDF2");
+            canvas.FillRectangle(0, videoY, dirtyRect.Width, 60);
+            canvas.FillColor = Color.FromArgb("#DAF2EB");
+            canvas.FillRectangle(0, audioY, dirtyRect.Width, 28);
+            canvas.FillColor = Color.FromArgb("#F0F1F4");
+            canvas.FillRectangle(0, captionsY, dirtyRect.Width, 28);
+            foreach (var clip in owner.Clips)
+            {
+                float x = (float)(clip.StartSeconds * scale);
+                float width = (float)Math.Max(5, clip.DurationSeconds * scale);
+                bool selected = clip.Id == owner.SelectedId;
+                canvas.FillColor = Color.FromArgb(selected ? "#448FC7" : "#CDD6E0");
+                canvas.FillRoundedRectangle(x, videoY + 2, width, 56, 2);
+                if (owner.Filmstrips.TryGetValue(clip.MediaId, out var frames) && frames.Count > 0)
+                {
+                    for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                    {
+                        float cellW = Math.Min(34, x + width - 3 - cellX);
+                        if (cellW < 1) break;
+                        double elapsed = (cellX - x) / scale;
+                        double sourcePosition = clip.InSeconds + elapsed;
+                        int index = (int)Math.Clamp(sourcePosition / Math.Max(.001, clip.OutSeconds) * frames.Count, 0, frames.Count - 1);
+                        canvas.DrawImage(frames[index], cellX, videoY + 5, cellW, 48);
+                    }
+                }
+                else
+                {
+                    canvas.FillColor = Color.FromArgb("#869DB0");
+                    for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                    {
+                        float cellW = Math.Min(34, x + width - 3 - cellX);
+                        if (cellW < 1) break;
+                        canvas.FillRoundedRectangle(cellX, videoY + 5, cellW, 48, 1);
+                    }
+                }
+                canvas.FontColor = Colors.White;
+                canvas.FontSize = 10;
+                canvas.DrawString(clip.Name, x + 5, videoY + 3, Math.Max(1, width - 10), 15, HorizontalAlignment.Left, VerticalAlignment.Center);
+                canvas.FillColor = Color.FromArgb("#2CB999");
+                canvas.FillRoundedRectangle(x, audioY + 1, width, 26, 2);
+                if (owner.Waveforms.TryGetValue(clip.MediaId, out var peaks) && peaks.Length > 0)
+                {
+                    canvas.StrokeColor = Colors.White;
+                    canvas.StrokeSize = 1;
+                    int count = Math.Max(1, (int)width);
+                    for (int i = 0; i < count; i += 2)
+                    {
+                        double duration = Math.Max(.001, clip.OutSeconds - clip.InSeconds);
+                        double mediaTime = clip.InSeconds + i / scale;
+                        int index = (int)Math.Clamp(mediaTime / Math.Max(.001, clip.OutSeconds) * peaks.Length, 0, peaks.Length - 1);
+                        float amplitude = Math.Clamp(peaks[index] * 11, 1, 11);
+                        canvas.DrawLine(x + i, audioY + 14 - amplitude, x + i, audioY + 14 + amplitude);
+                    }
+                }
+                canvas.FillColor = Colors.White;
+                canvas.FillRectangle(x, videoY + 19, 2, 34);
+                canvas.FillRectangle(x + width - 2, videoY + 19, 2, 34);
+            }
+            foreach (var cue in owner.Subtitles)
+            {
+                if (cue.End <= cue.Start) continue;
+                float x = (float)(cue.Start * scale);
+                float width = (float)Math.Max(3, (cue.End - cue.Start) * scale);
+                canvas.FillColor = Color.FromArgb("#F1BF28");
+                canvas.FillRoundedRectangle(x, captionsY + 6, width, 17, 2);
+                canvas.FontColor = Color.FromArgb("#524113");
+                canvas.FontSize = 9;
+                canvas.DrawString(cue.Text, x + 2, captionsY + 5, Math.Max(1, width - 4), 19, HorizontalAlignment.Left, VerticalAlignment.Center);
+            }
+            float playhead = (float)(owner.PlayheadSeconds * scale);
+            canvas.StrokeColor = Color.FromArgb("#1689FF");
+            canvas.StrokeSize = 2;
+            canvas.DrawLine(playhead, 5, playhead, dirtyRect.Height);
+            canvas.FillColor = Color.FromArgb("#1689FF");
+            canvas.FillRoundedRectangle(playhead - 5, 1, 10, 13, 4);
         }
     }
 }
