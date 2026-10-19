@@ -12,6 +12,7 @@ public partial class MainPage : ContentPage
     private double? _dragStart;
     private CancellationTokenSource? _exportCancellation;
     private CancellationTokenSource? _frameCancellation;
+    private CancellationTokenSource? _previewCancellation;
 
     public MainPage()
     {
@@ -295,6 +296,33 @@ public partial class MainPage : ContentPage
         {
             if (ReferenceEquals(_frameCancellation, cancellation)) _frameCancellation = null;
             cancellation.Dispose();
+        }
+    }
+
+    private async void OnPreviewSegmentClicked(object sender, EventArgs e)
+    {
+        if (_previewCancellation is not null) return;
+        _previewCancellation = new CancellationTokenSource();
+        PreviewSegmentButton.IsEnabled = false;
+        try
+        {
+            StatusLabel.Text = "Rendering 5-second composed preview...";
+            var proxy = await PreviewSegmentService.RenderAsync(_project,
+                PlayheadSlider.Value, ct: _previewCancellation.Token);
+            CompositedFrame.IsVisible = false;
+            VideoPreview.IsVisible = true;
+            VideoPreview.Pause();
+            VideoPreview.SourcePath = proxy;
+            VideoPreview.PositionSeconds = 0;
+            VideoPreview.Play();
+            StatusLabel.Text = "Playing composed preview segment (pre-rendered proxy).";
+        }
+        catch (Exception ex) { await ShowError(ex); }
+        finally
+        {
+            _previewCancellation?.Dispose();
+            _previewCancellation = null;
+            PreviewSegmentButton.IsEnabled = true;
         }
     }
 
