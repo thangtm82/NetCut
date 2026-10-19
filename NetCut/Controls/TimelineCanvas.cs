@@ -8,11 +8,11 @@ public sealed class TimelineCanvas : GraphicsView
     public TimelineCanvas()
     {
         Drawable = new TimelinePainter(this);
-        HeightRequest = 230;
+        HeightRequest = 298;
     }
 
     public IReadOnlyList<TimelineClip> Clips { get; set; } = Array.Empty<TimelineClip>();
-    public double PixelsPerSecond { get; set; } = 35;
+    public double PixelsPerSecond { get; set; } = 4;
     public string? SelectedId { get; set; }
 
     public event Action<TimelineClip>? ClipSelected;
@@ -32,9 +32,9 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void BeginPointer(double x, double y)
     {
-        // 36px ruler; 54px per track.
-        if (y < 36) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
-        var trackIndex = (int)((y - 36) / 54);
+        // 42px ruler; 82px per track.
+        if (y < 42) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
+        var trackIndex = (int)((y - 42) / 82);
         _dragging = Clips.LastOrDefault(c => c.TrackIndex == trackIndex &&
             x >= c.StartSeconds * PixelsPerSecond &&
             x <= (c.StartSeconds + c.DurationSeconds) * PixelsPerSecond);
@@ -71,55 +71,86 @@ public sealed class TimelineCanvas : GraphicsView
     {
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
-            canvas.FillColor = Color.FromArgb("#20242A");
+            canvas.FillColor = Color.FromArgb("#16191F");
             canvas.FillRectangle(dirtyRect);
             float scale = (float)owner.PixelsPerSecond;
+            const float rulerHeight = 42;
+            const float trackHeight = 82;
             int tracks = Math.Max(3, owner.Clips.Count == 0 ? 0 : owner.Clips.Max(c => c.TrackIndex) + 1);
-            for (int s = 0; s < dirtyRect.Width / scale + 2; s += 5)
+            canvas.FillColor = Color.FromArgb("#21252C");
+            canvas.FillRectangle(0, 0, dirtyRect.Width, rulerHeight);
+            double majorSeconds = scale < 2 ? 120 : scale < 5 ? 60 : scale < 12 ? 30 : 10;
+            double minorSeconds = majorSeconds / 4;
+            for (double second = 0; second <= dirtyRect.Width / scale + majorSeconds; second += minorSeconds)
             {
-                float x = s * scale;
-                canvas.StrokeColor = Color.FromArgb("#505762");
-                canvas.DrawLine(x, 0, x, dirtyRect.Height);
-                canvas.FontColor = Colors.White;
-                canvas.FontSize = 11;
-                canvas.DrawString(TimeSpan.FromSeconds(s).ToString(@"mm\:ss"), x + 3, 5, 55, 20, HorizontalAlignment.Left, VerticalAlignment.Center);
+                float x = (float)(second * scale);
+                bool major = Math.Abs(second / majorSeconds - Math.Round(second / majorSeconds)) < .001;
+                canvas.StrokeColor = Color.FromArgb(major ? "#7A8493" : "#4A535E");
+                canvas.StrokeSize = 1;
+                canvas.DrawLine(x, major ? 21 : 31, x, rulerHeight);
+                if (major)
+                {
+                    canvas.FontColor = Color.FromArgb("#D5DCE6");
+                    canvas.FontSize = 11;
+                    string label = TimeSpan.FromSeconds(second).ToString(second >= 3600 ? @"h\:mm\:ss" : @"mm\:ss");
+                    canvas.DrawString(label, x + 4, 3, 88, 19, HorizontalAlignment.Left, VerticalAlignment.Center);
+                }
             }
             for (int i = 0; i < tracks; i++)
             {
-                float y = 36 + i * 54;
-                canvas.FillColor = i % 2 == 0 ? Color.FromArgb("#292F38") : Color.FromArgb("#252A32");
-                canvas.FillRectangle(0, y, dirtyRect.Width, 52);
-                canvas.FontColor = Colors.White;
-                canvas.FontSize = 10;
-                canvas.DrawString($"V{i+1}", 3, y + 3, 30, 18, HorizontalAlignment.Left, VerticalAlignment.Center);
+                float y = rulerHeight + i * trackHeight;
+                canvas.FillColor = i % 2 == 0 ? Color.FromArgb("#242931") : Color.FromArgb("#20252C");
+                canvas.FillRectangle(0, y, dirtyRect.Width, trackHeight - 2);
+                canvas.StrokeColor = Color.FromArgb("#343B45");
+                canvas.StrokeSize = 1;
+                canvas.DrawLine(0, y + trackHeight - 2, dirtyRect.Width, y + trackHeight - 2);
             }
-            canvas.StrokeColor = Colors.OrangeRed;
-            float px = (float)(owner.PlayheadSeconds * owner.PixelsPerSecond);
-            canvas.DrawLine(px, 0, px, dirtyRect.Height);
             foreach (var clip in owner.Clips)
             {
                 float x = (float)(clip.StartSeconds * owner.PixelsPerSecond);
-                float y = 36 + clip.TrackIndex * 54 + 3;
-                float width = (float)Math.Max(5, clip.DurationSeconds * owner.PixelsPerSecond);
-                canvas.FillColor = clip.Id == owner.SelectedId ? Color.FromArgb("#18A999") : Color.FromArgb("#167867");
-                canvas.FillRoundedRectangle(x, y, width, 46, 6);
-                canvas.FillColor = Colors.White;
-                canvas.FillRectangle(x, y + 5, 3, 34);
-                canvas.FillRectangle(x + width - 3, y + 5, 3, 34);
+                float y = rulerHeight + clip.TrackIndex * trackHeight + 5;
+                float width = (float)Math.Max(6, clip.DurationSeconds * owner.PixelsPerSecond);
+                bool selected = clip.Id == owner.SelectedId;
+                canvas.FillColor = Color.FromArgb(selected ? "#306FBE" : "#285A82");
+                canvas.FillRoundedRectangle(x, y, width, 70, 5);
+                canvas.FillColor = Color.FromArgb(selected ? "#74B6FF" : "#438BBB");
+                canvas.FillRoundedRectangle(x, y, width, 21, 4);
                 canvas.FontColor = Colors.White;
-                canvas.FontSize = 12;
-                canvas.DrawString(clip.Name, x + 6, y + 2, width - 12, 17, HorizontalAlignment.Left, VerticalAlignment.Center);
+                canvas.FontSize = 11;
+                canvas.DrawString(clip.Name, x + 8, y + 1, Math.Max(1, width - 16), 18, HorizontalAlignment.Left, VerticalAlignment.Center);
+                // Video placeholder cells follow the visual rhythm of a thumbnail filmstrip.
+                // Actual decoded frame thumbnails can be supplied by a later thumbnail cache.
+                canvas.FillColor = Color.FromArgb("#213E5C");
+                for (float cell = x + 4; cell < x + width - 6; cell += 48)
+                {
+                    float cellWidth = Math.Min(44, x + width - 5 - cell);
+                    if (cellWidth <= 0) break;
+                    canvas.FillRoundedRectangle(cell, y + 25, cellWidth, 39, 2);
+                    canvas.FillColor = Color.FromArgb("#345E7F");
+                    canvas.FillRectangle(cell + 5, y + 31, Math.Max(1, cellWidth - 10), 23);
+                    canvas.FillColor = Color.FromArgb("#213E5C");
+                }
                 if (owner.Waveforms.TryGetValue(clip.MediaId, out var peaks) && peaks.Length > 0)
                 {
-                    canvas.StrokeColor = Colors.LightGreen;
-                    for (var i = 0; i < peaks.Length; i++)
+                    canvas.StrokeColor = Color.FromArgb("#85E7B7");
+                    canvas.StrokeSize = 1;
+                    for (int i = 0; i < peaks.Length; i++)
                     {
-                        var sampleX = x + 5 + (width - 10) * i / peaks.Length;
-                        var amplitude = peaks[i] * 10;
-                        canvas.DrawLine(sampleX, y + 34 - amplitude, sampleX, y + 34 + amplitude);
+                        float sampleX = x + 4 + Math.Max(1, width - 8) * i / peaks.Length;
+                        float amplitude = Math.Clamp(peaks[i] * 15, 0, 15);
+                        canvas.DrawLine(sampleX, y + 48 - amplitude, sampleX, y + 48 + amplitude);
                     }
                 }
+                canvas.FillColor = Colors.White;
+                canvas.FillRoundedRectangle(x, y + 26, 3, 35, 1);
+                canvas.FillRoundedRectangle(x + width - 3, y + 26, 3, 35, 1);
             }
+            float px = (float)(owner.PlayheadSeconds * scale);
+            canvas.StrokeColor = Color.FromArgb("#47A9FF");
+            canvas.StrokeSize = 2;
+            canvas.DrawLine(px, 9, px, dirtyRect.Height);
+            canvas.FillColor = Color.FromArgb("#47A9FF");
+            canvas.FillRoundedRectangle(px - 6, 1, 12, 15, 3);
         }
     }
 }
