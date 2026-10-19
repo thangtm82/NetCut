@@ -10,6 +10,7 @@ public partial class MainPage : ContentPage
     private string? _projectPath;
     private readonly ProjectHistory _history = new();
     private double? _dragStart;
+    private CancellationTokenSource? _exportCancellation;
 
     public MainPage()
     {
@@ -48,6 +49,7 @@ public partial class MainPage : ContentPage
         TimelineList.ItemsSource = _project.Clips;
         ProjectNameLabel.Text = _project.Name;
         RefreshTimeline();
+        PlayheadSlider.Maximum = Math.Max(1, _project.DurationSeconds);
     }
 
     private async void OnNewClicked(object sender, EventArgs e)
@@ -245,6 +247,29 @@ public partial class MainPage : ContentPage
         StatusLabel.Text = "Redo complete.";
     }
 
+    private void OnPlayheadChanged(object sender, ValueChangedEventArgs e)
+    {
+        PlayheadLabel.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"mm\:ss") +
+            " / " + TimeSpan.FromSeconds(_project.DurationSeconds).ToString(@"mm\:ss");
+    }
+
+    private void OnSeekClicked(object sender, EventArgs e)
+    {
+        var time = PlayheadSlider.Value;
+        var clip = _project.Clips.Where(c => c.StartSeconds <= time &&
+            time < c.StartSeconds + c.DurationSeconds)
+            .OrderByDescending(c => c.TrackIndex).FirstOrDefault();
+        if (clip is null) { VideoPreview.Pause(); StatusLabel.Text = "No clip at playhead."; return; }
+        var media = _project.Media.FirstOrDefault(m => m.Id == clip.MediaId);
+        if (media is null || !File.Exists(media.Path)) return;
+        VideoPreview.Pause();
+        VideoPreview.SourcePath = media.Path;
+        VideoPreview.PositionSeconds = clip.InSeconds + time - clip.StartSeconds;
+        StatusLabel.Text = "Source-only seek: " + clip.Name + " (not composited preview)";
+    }
+
+    private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
+
     private async void OnExportClicked(object sender, EventArgs e)
     {
         if (_project.Clips.Count == 0)
@@ -253,15 +278,37 @@ public partial class MainPage : ContentPage
             return;
         }
         var output = Path.Combine(FileSystem.AppDataDirectory, "exports", SanitizeFileName(_project.Name) + ".mp4");
+        if (_exportCancellation is not null) return;
+        _exportCancellation = new CancellationTokenSource();
+        ExportButton.IsEnabled = false;
+        CancelExportButton.IsEnabled = true;
+        ExportProgressBar.Progress = 0;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             StatusLabel.Text = "Exporting MP4...";
-            await FfmpegService.ExportCompositionAsync(_project, output);
+            var progress = new Progress<double>(value =>
+            {
+                ExportProgressBar.Progress = value;
+                StatusLabel.Text = $"Exporting MP4... {value:P0}";
+            });
+            await FfmpegService.ExportCompositionAsync(_project, output, _exportCancellation.Token, progress);
             StatusLabel.Text = $"Export complete: {output}";
             await DisplayAlert("Export complete", output, "OK");
         }
+        catch (OperationCanceledException)
+        {
+            StatusLabel.Text = "Export cancelled.";
+            try { if (File.Exists(output)) File.Delete(output); } catch (IOException) { }
+        }
         catch (Exception ex) { await ShowError(ex); }
+        finally
+        {
+            _exportCancellation?.Dispose();
+            _exportCancellation = null;
+            ExportButton.IsEnabled = true;
+            CancelExportButton.IsEnabled = false;
+        }
     }
 
     private static string SanitizeFileName(string name)
