@@ -36,9 +36,8 @@ public sealed class TimelineCanvas : GraphicsView
     {
         // 42px ruler; 82px per track.
         if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
-        var trackIndex = 0;
         if (y >= 86) return;
-        _dragging = Clips.LastOrDefault(c => c.TrackIndex == trackIndex &&
+        _dragging = Clips.OrderBy(c => c.TrackIndex).LastOrDefault(c =>
             x >= c.StartSeconds * PixelsPerSecond &&
             x <= (c.StartSeconds + c.DurationSeconds) * PixelsPerSecond);
         if (_dragging is not null)
