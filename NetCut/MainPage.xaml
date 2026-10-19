@@ -14,7 +14,8 @@
       <Button Text="Undo" Clicked="OnUndoClicked"/>
       <Button Text="Redo" Clicked="OnRedoClicked"/>
       <Button Text="Import Media" Clicked="OnImportClicked"/>
-      <Button Text="Export MP4" Clicked="OnExportClicked"/>
+      <Button x:Name="ExportButton" Text="Export MP4" Clicked="OnExportClicked"/>
+      <Button x:Name="CancelExportButton" Text="Cancel Export" Clicked="OnCancelExportClicked" IsEnabled="False"/>
     </HorizontalStackLayout>
 
     <Grid Grid.Row="1" ColumnDefinitions="290,*,300" ColumnSpacing="12">
@@ -40,7 +41,10 @@
           <HorizontalStackLayout Spacing="8">
             <Button Text="Play" Clicked="OnPlayClicked"/>
             <Button Text="Pause" Clicked="OnPauseClicked"/>
+            <Button Text="Seek" Clicked="OnSeekClicked"/>
           </HorizontalStackLayout>
+          <Slider x:Name="PlayheadSlider" Minimum="0" Maximum="1" ValueChanged="OnPlayheadChanged"/>
+          <Label x:Name="PlayheadLabel" Text="00:00 / 00:00" TextColor="White"/>
           <Label x:Name="ProjectNameLabel" Text="Untitled Project" FontSize="21" TextColor="White"
                  HorizontalTextAlignment="Center"/>
           <Button Text="Add Selected Media to Timeline" Clicked="OnAddClipClicked"/>
@@ -82,6 +86,9 @@
       </Grid>
     </Border>
 
-    <Label x:Name="StatusLabel" Grid.Row="3" Text="Ready" TextColor="#C9D2DB"/>
+    <VerticalStackLayout Grid.Row="3" Spacing="3">
+      <ProgressBar x:Name="ExportProgressBar" Progress="0"/>
+      <Label x:Name="StatusLabel" Text="Ready" TextColor="#C9D2DB"/>
+    </VerticalStackLayout>
   </Grid>
 </ContentPage>
