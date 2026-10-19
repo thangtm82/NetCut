@@ -11,6 +11,7 @@ public partial class MainPage : ContentPage
     private readonly ProjectHistory _history = new();
     private double? _dragStart;
     private CancellationTokenSource? _exportCancellation;
+    private CancellationTokenSource? _frameCancellation;
 
     public MainPage()
     {
@@ -262,10 +263,39 @@ public partial class MainPage : ContentPage
         if (clip is null) { VideoPreview.Pause(); StatusLabel.Text = "No clip at playhead."; return; }
         var media = _project.Media.FirstOrDefault(m => m.Id == clip.MediaId);
         if (media is null || !File.Exists(media.Path)) return;
+        CompositedFrame.IsVisible = false;
+        VideoPreview.IsVisible = true;
         VideoPreview.Pause();
         VideoPreview.SourcePath = media.Path;
         VideoPreview.PositionSeconds = clip.InSeconds + time - clip.StartSeconds;
         StatusLabel.Text = "Source-only seek: " + clip.Name + " (not composited preview)";
+    }
+
+    private async void OnRenderFrameClicked(object sender, EventArgs e)
+    {
+        _frameCancellation?.Cancel();
+        _frameCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _frameCancellation = cancellation;
+        var framePath = Path.Combine(FileSystem.CacheDirectory, "netcut-preview-" + Guid.NewGuid().ToString("N") + ".png");
+        try
+        {
+            StatusLabel.Text = "Rendering composite frame...";
+            await TimelineFramePreview.RenderAsync(_project, PlayheadSlider.Value, framePath, cancellation.Token);
+            if (cancellation.IsCancellationRequested) return;
+            VideoPreview.Pause();
+            VideoPreview.IsVisible = false;
+            CompositedFrame.Source = ImageSource.FromFile(framePath);
+            CompositedFrame.IsVisible = true;
+            StatusLabel.Text = "Composite frame rendered (still image, not real-time playback).";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { await ShowError(ex); }
+        finally
+        {
+            if (ReferenceEquals(_frameCancellation, cancellation)) _frameCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
