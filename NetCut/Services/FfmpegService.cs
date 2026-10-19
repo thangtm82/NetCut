@@ -113,6 +113,41 @@ public static class FfmpegService
         return !string.IsNullOrWhiteSpace(output);
     }
 
+
+    public static async Task ExportCompositionAsync(ProjectDocument project, string output,
+        CancellationToken ct = default)
+    {
+        var types = new Dictionary<string, (bool Video, bool Audio)>();
+        foreach (var media in project.Media.Where(m => project.Clips.Any(c => c.MediaId == m.Id)))
+        {
+            var video = await ProbeStreamAsync(media.Path, "v:0", ct);
+            var audio = await ProbeStreamAsync(media.Path, "a:0", ct);
+            types[media.Id] = (video, audio);
+        }
+        var items = CompositionPlan.Validate(project, types);
+        var duration = items.Max(item => item.Clip.StartSeconds + item.Clip.DurationSeconds);
+        var args = new List<string> { "-hide_banner", "-y" };
+        var ci = CultureInfo.InvariantCulture;
+        foreach (var item in items)
+        {
+            args.AddRange(["-ss", item.Clip.InSeconds.ToString(ci), "-t",
+                item.Clip.DurationSeconds.ToString(ci), "-i", item.Media.Path]);
+        }
+        args.AddRange(["-filter_complex", CompositionPlan.BuildFilter(items, duration),
+            "-map", "[vout]", "-map", "[aout]",
+            "-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", output]);
+        await RunAsync(Executable("NETCUT_FFMPEG", "ffmpeg"), args, ct);
+    }
+
+    private static async Task<bool> ProbeStreamAsync(string path, string selection, CancellationToken ct)
+    {
+        var output = await RunAsync(Executable("NETCUT_FFPROBE", "ffprobe"),
+            ["-v", "error", "-select_streams", selection, "-show_entries", "stream=index",
+             "-of", "csv=p=0", path], ct);
+        return !string.IsNullOrWhiteSpace(output);
+    }
+
     public static Task ExportClipAsync(MediaItem media, TimelineClip clip, string output, CancellationToken ct = default)
     {
         if (clip.OutSeconds <= clip.InSeconds) throw new ArgumentException("Clip out must be greater than in.");

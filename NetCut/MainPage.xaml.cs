@@ -247,10 +247,9 @@ public partial class MainPage : ContentPage
 
     private async void OnExportClicked(object sender, EventArgs e)
     {
-        var renderErrors = RenderValidation.CheckSequence(_project);
-        if (renderErrors.Count > 0)
+        if (_project.Clips.Count == 0)
         {
-            await DisplayAlert("Export validation", string.Join("\n", renderErrors.Take(6)), "OK");
+            await DisplayAlert("Export", "No timeline clips to render.", "OK");
             return;
         }
         var output = Path.Combine(FileSystem.AppDataDirectory, "exports", SanitizeFileName(_project.Name) + ".mp4");
@@ -258,7 +257,7 @@ public partial class MainPage : ContentPage
         {
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             StatusLabel.Text = "Exporting MP4...";
-            await FfmpegService.ExportSequenceAsync(_project, output);
+            await FfmpegService.ExportCompositionAsync(_project, output);
             StatusLabel.Text = $"Export complete: {output}";
             await DisplayAlert("Export complete", output, "OK");
         }
