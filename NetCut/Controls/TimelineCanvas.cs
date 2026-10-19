@@ -13,6 +13,9 @@ public sealed class TimelineCanvas : GraphicsView
 
     public IReadOnlyList<TimelineClip> Clips { get; set; } = Array.Empty<TimelineClip>();
     public double PixelsPerSecond { get; set; } = 4;
+    public double ViewStartSeconds { get; set; }
+    public double ProjectDurationSeconds { get; set; }
+    private double XToSeconds(double x) => ViewStartSeconds + x / PixelsPerSecond;
     public string? SelectedId { get; set; }
     public IReadOnlyList<SubtitleCue> Subtitles { get; set; } = Array.Empty<SubtitleCue>();
     public Dictionary<string, List<Microsoft.Maui.Graphics.IImage>> Filmstrips { get; } = new();
@@ -35,17 +38,17 @@ public sealed class TimelineCanvas : GraphicsView
     public void BeginPointer(double x, double y)
     {
         // 42px ruler; 82px per track.
-        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
+        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, XToSeconds(x))); return; }
         if (y >= 86) return;
         _dragging = Clips.OrderBy(c => c.TrackIndex).LastOrDefault(c =>
-            x >= c.StartSeconds * PixelsPerSecond &&
-            x <= (c.StartSeconds + c.DurationSeconds) * PixelsPerSecond);
+            XToSeconds(x) >= c.StartSeconds &&
+            XToSeconds(x) <= c.StartSeconds + c.DurationSeconds);
         if (_dragging is not null)
         {
-            var left = _dragging.StartSeconds * PixelsPerSecond;
-            var right = (_dragging.StartSeconds + _dragging.DurationSeconds) * PixelsPerSecond;
+            var left = (_dragging.StartSeconds - ViewStartSeconds) * PixelsPerSecond;
+            var right = (_dragging.StartSeconds + _dragging.DurationSeconds - ViewStartSeconds) * PixelsPerSecond;
             _mode = x - left < 10 ? "left" : right - x < 10 ? "right" : "move";
-            _dragOffset = x / PixelsPerSecond - _dragging.StartSeconds;
+            _dragOffset = XToSeconds(x) - _dragging.StartSeconds;
             ClipDragStarted?.Invoke(_dragging);
             SelectedId = _dragging.Id;
             ClipSelected?.Invoke(_dragging);
@@ -56,9 +59,9 @@ public sealed class TimelineCanvas : GraphicsView
     public void MovePointer(double x)
     {
         if (_dragging is null) return;
-        var time = Math.Max(0, x / PixelsPerSecond - _dragOffset);
+        var time = Math.Max(0, XToSeconds(x) - _dragOffset);
         if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
-        else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, x / PixelsPerSecond));
+        else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, XToSeconds(x)));
         Invalidate();
     }
 
@@ -83,9 +86,10 @@ public sealed class TimelineCanvas : GraphicsView
             canvas.FillColor = Colors.White;
             canvas.FillRectangle(0, 0, dirtyRect.Width, ruler);
             double step = scale < 2 ? 120 : scale < 5 ? 120 : scale < 15 ? 30 : 10;
-            for (double t = 0; t < dirtyRect.Width / scale + step; t += step / 4)
+            double firstTick = Math.Floor(owner.ViewStartSeconds / (step / 4)) * (step / 4);
+            for (double t = firstTick; t < owner.ViewStartSeconds + dirtyRect.Width / scale + step; t += step / 4)
             {
-                float x = (float)(t * scale);
+                float x = (float)((t - owner.ViewStartSeconds) * scale);
                 bool major = Math.Abs(t / step - Math.Round(t / step)) < .001;
                 canvas.StrokeColor = Color.FromArgb(major ? "#C6CBD2" : "#E2E5E9");
                 canvas.StrokeSize = 1;
@@ -106,14 +110,15 @@ public sealed class TimelineCanvas : GraphicsView
             canvas.FillRectangle(0, captionsY, dirtyRect.Width, 28);
             foreach (var clip in owner.Clips)
             {
-                float x = (float)(clip.StartSeconds * scale);
+                if (clip.StartSeconds + clip.DurationSeconds < owner.ViewStartSeconds || clip.StartSeconds > owner.ViewStartSeconds + dirtyRect.Width / scale) continue;
+                float x = (float)((clip.StartSeconds - owner.ViewStartSeconds) * scale);
                 float width = (float)Math.Max(5, clip.DurationSeconds * scale);
                 bool selected = clip.Id == owner.SelectedId;
                 canvas.FillColor = Color.FromArgb(selected ? "#448FC7" : "#CDD6E0");
                 canvas.FillRoundedRectangle(x, videoY + 2, width, 56, 2);
                 if (owner.Filmstrips.TryGetValue(clip.MediaId, out var frames) && frames.Count > 0)
                 {
-                    for (float cellX = x + 2; cellX < x + width - 3; cellX += 36)
+                    for (float cellX = Math.Max(x + 2, x + 2 + (float)Math.Floor((0 - x - 2) / 36) * 36); cellX < Math.Min(x + width - 3, dirtyRect.Width); cellX += 36)
                     {
                         float cellW = Math.Min(34, x + width - 3 - cellX);
                         if (cellW < 1) break;
@@ -142,10 +147,10 @@ public sealed class TimelineCanvas : GraphicsView
                 {
                     canvas.StrokeColor = Colors.White;
                     canvas.StrokeSize = 1;
-                    int count = Math.Max(1, (int)width);
-                    for (int i = 0; i < count; i += 2)
+                    int first = Math.Max(0, (int)((-x) / 2) * 2);
+                    int last = Math.Min((int)Math.Ceiling(width), (int)Math.Ceiling(dirtyRect.Width - x));
+                    for (int i = first; i < last; i += 2)
                     {
-                        double duration = Math.Max(.001, clip.OutSeconds - clip.InSeconds);
                         double mediaTime = clip.InSeconds + i / scale;
                         int index = (int)Math.Clamp(mediaTime / Math.Max(.001, clip.OutSeconds) * peaks.Length, 0, peaks.Length - 1);
                         float amplitude = Math.Clamp(peaks[index] * 11, 1, 11);
@@ -158,8 +163,8 @@ public sealed class TimelineCanvas : GraphicsView
             }
             foreach (var cue in owner.Subtitles)
             {
-                if (cue.End <= cue.Start) continue;
-                float x = (float)(cue.Start * scale);
+                if (cue.End <= cue.Start || cue.End < owner.ViewStartSeconds || cue.Start > owner.ViewStartSeconds + dirtyRect.Width / scale) continue;
+                float x = (float)((cue.Start - owner.ViewStartSeconds) * scale);
                 float width = (float)Math.Max(3, (cue.End - cue.Start) * scale);
                 canvas.FillColor = Color.FromArgb("#F1BF28");
                 canvas.FillRoundedRectangle(x, captionsY + 6, width, 17, 2);
@@ -167,7 +172,7 @@ public sealed class TimelineCanvas : GraphicsView
                 canvas.FontSize = 9;
                 canvas.DrawString(cue.Text, x + 2, captionsY + 5, Math.Max(1, width - 4), 19, HorizontalAlignment.Left, VerticalAlignment.Center);
             }
-            float playhead = (float)(owner.PlayheadSeconds * scale);
+            float playhead = (float)((owner.PlayheadSeconds - owner.ViewStartSeconds) * scale);
             canvas.StrokeColor = Color.FromArgb("#1689FF");
             canvas.StrokeSize = 2;
             canvas.DrawLine(playhead, 5, playhead, dirtyRect.Height);
