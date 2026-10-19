@@ -115,7 +115,7 @@ public static class FfmpegService
 
 
     public static async Task ExportCompositionAsync(ProjectDocument project, string output,
-        CancellationToken ct = default)
+        CancellationToken ct = default, IProgress<double>? progress = null)
     {
         var types = new Dictionary<string, (bool Video, bool Audio)>();
         foreach (var media in project.Media.Where(m => project.Clips.Any(c => c.MediaId == m.Id)))
@@ -137,7 +137,7 @@ public static class FfmpegService
             "-map", "[vout]", "-map", "[aout]",
             "-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", output]);
-        await RunAsync(Executable("NETCUT_FFMPEG", "ffmpeg"), args, ct);
+        await ExportProcess.RunAsync(Executable("NETCUT_FFMPEG", "ffmpeg"), args, duration, progress, ct);
     }
 
     private static async Task<bool> ProbeStreamAsync(string path, string selection, CancellationToken ct)
