@@ -258,17 +258,37 @@ public partial class MainPage : ContentPage
         }
     }
 
-    // A Windows GraphicsView draws into a bitmap; keep safely below the 16384-pixel device limit.
-    private const double MaxTimelineCanvasWidth = 8192;
+    private double _viewStartSeconds;
+    private double ViewportWidth => Math.Max(1, TimelineViewport?.Width > 1 ? TimelineViewport.Width : 900);
+    private double VisibleSeconds => ViewportWidth / Math.Max(0.01, TimelineCanvas.PixelsPerSecond);
+    private double MaxViewStart => Math.Max(0, _project.DurationSeconds - VisibleSeconds);
 
-    private double SafeTimelineZoomMaximum => Math.Max(0.01, Math.Min(80, (MaxTimelineCanvasWidth - 250) / Math.Max(1, _project.DurationSeconds)));
+    private void UpdateViewport()
+    {
+        if (TimelineCanvas is null || TimelinePanSlider is null) return;
+        _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, MaxViewStart);
+        TimelineCanvas.ViewStartSeconds = _viewStartSeconds;
+        TimelineCanvas.ProjectDurationSeconds = _project.DurationSeconds;
+        TimelinePanSlider.Maximum = Math.Max(1, MaxViewStart);
+        TimelinePanSlider.Value = _viewStartSeconds;
+        TimelineCanvas.Refresh();
+    }
+
+    private void OnTimelineViewportSizeChanged(object sender, EventArgs e) => UpdateViewport();
+
+    private void OnTimelinePanChanged(object sender, ValueChangedEventArgs e)
+    {
+        if (TimelineCanvas is null) return;
+        _viewStartSeconds = Math.Clamp(e.NewValue, 0, MaxViewStart);
+        TimelineCanvas.ViewStartSeconds = _viewStartSeconds;
+        TimelineCanvas.Refresh();
+    }
 
     private void RefreshTimeline()
     {
         TimelineCanvas.Clips = _project.Clips.ToArray();
         TimelineCanvas.Subtitles = _project.Subtitles.ToArray();
-        UpdateSafeTimelineSize();
-        TimelineCanvas.Refresh();
+        UpdateViewport();
     }
 
     private void PreviewClip(TimelineClip clip)
@@ -536,8 +556,10 @@ public partial class MainPage : ContentPage
 
     private void OnTimelineFitClicked(object sender, EventArgs e)
     {
-        double viewport = TimelineScroll.Width > 100 ? TimelineScroll.Width : 900;
-        TimelineZoomSlider.Value = Math.Clamp((viewport - 20) / Math.Max(1, _project.DurationSeconds), TimelineZoomSlider.Minimum, SafeTimelineZoomMaximum);
+        double targetScale = Math.Max(0.05, (ViewportWidth - 20) / Math.Max(1, _project.DurationSeconds));
+        TimelineZoomSlider.Value = Math.Clamp(1 + 79 * Math.Log(targetScale / 0.05) / Math.Log(800 / 0.05), 1, 80);
+        _viewStartSeconds = 0;
+        UpdateViewport();
     }
 
     private async void OnSubtitleToolClicked(object sender, EventArgs e)
@@ -567,23 +589,20 @@ public partial class MainPage : ContentPage
 
     private void OnTimelineZoomChanged(object sender, ValueChangedEventArgs e)
     {
-        if (TimelineCanvas is null) return;
-        UpdateSafeTimelineSize();
-        TimelineCanvas.Refresh();
-    }
-
-    private void UpdateSafeTimelineSize()
-    {
-        if (TimelineCanvas is null || TimelineZoomSlider is null) return;
-        double maxZoom = SafeTimelineZoomMaximum;
-        // Slider.Minimum must remain lower than Maximum; clamp its range for long media.
-        TimelineZoomSlider.Minimum = Math.Min(1, maxZoom / 2);
-        TimelineZoomSlider.Maximum = maxZoom;
-        double zoom = Math.Clamp(TimelineZoomSlider.Value, TimelineZoomSlider.Minimum, maxZoom);
-        if (Math.Abs(TimelineZoomSlider.Value - zoom) > 0.0001) TimelineZoomSlider.Value = zoom;
-        TimelineCanvas.PixelsPerSecond = zoom;
-        TimelineCanvas.WidthRequest = Math.Min(MaxTimelineCanvasWidth,
-            Math.Max(1200, _project.DurationSeconds * zoom + 250));
+        if (TimelineCanvas is null || TimelinePanSlider is null) return;
+        double oldScale = Math.Max(0.01, TimelineCanvas.PixelsPerSecond);
+        double anchorTime = PlayheadSlider.Value;
+        double anchorX = (anchorTime - _viewStartSeconds) * oldScale;
+        if (anchorX < 0 || anchorX > ViewportWidth)
+        {
+            anchorX = ViewportWidth / 2;
+            anchorTime = _viewStartSeconds + anchorX / oldScale;
+        }
+        // Logarithmic control: position 1..80 maps to a wide range of px/sec.
+        double newScale = Math.Exp(Math.Log(0.05) + (e.NewValue - 1) / 79 * Math.Log(800 / 0.05));
+        TimelineCanvas.PixelsPerSecond = newScale;
+        _viewStartSeconds = anchorTime - anchorX / newScale;
+        UpdateViewport();
     }
 
     private void OnRippleDeleteClicked(object sender, EventArgs e)
