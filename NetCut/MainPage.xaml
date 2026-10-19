@@ -111,10 +111,12 @@
             <Label Grid.Row="2" Text="♫" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
             <Label Grid.Row="3" Text="T" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
           </Grid>
-          <ScrollView x:Name="TimelineScroll" Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Always">
-            <ScrollView.GestureRecognizers><DropGestureRecognizer AllowDrop="True" Drop="OnMediaDropped"/></ScrollView.GestureRecognizers>
-            <controls:TimelineCanvas x:Name="TimelineCanvas" WidthRequest="4000"/>
-          </ScrollView>
+          <Grid x:Name="TimelineViewport" Grid.Column="1" RowDefinitions="*,18" SizeChanged="OnTimelineViewportSizeChanged">
+            <controls:TimelineCanvas x:Name="TimelineCanvas" Grid.Row="0" HorizontalOptions="Fill" VerticalOptions="Fill">
+              <controls:TimelineCanvas.GestureRecognizers><DropGestureRecognizer AllowDrop="True" Drop="OnMediaDropped"/></controls:TimelineCanvas.GestureRecognizers>
+            </controls:TimelineCanvas>
+            <Slider x:Name="TimelinePanSlider" Grid.Row="1" Minimum="0" Maximum="1" ValueChanged="OnTimelinePanChanged" />
+          </Grid>
         </Grid>
       </Grid>
     </Border>
