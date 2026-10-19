@@ -70,3 +70,17 @@ unity gain and might clip; output is fixed at 1280x720, 30fps, H.264/AAC.
 Overlapping clips on the same track have deterministic sequential ordering,
 not a fully-defined video-editor z-order. Large projects may be slow.
 This feature has not yet passed a Windows build or end-to-end video test.
+
+
+## Phase 5 — Export progress, cancellation, and source timeline seek
+
+The native .NET MAUI window shows a ProgressBar fed by FFmpeg `-progress pipe:1`
+(`out_time_us`) and a Cancel Export button. Cancellation kills the FFmpeg
+process tree and attempts to remove a partial MP4. The seek slider searches the
+topmost active clip by TrackIndex and positions the native WinUI media player
+at the corresponding source In point. It is a **source-only seek**, not live
+WYSIWYG multi-track compositing; gaps and audio-only clips are not composited
+in the preview. FFmpeg rendering remains experimental until validated.
+
+Release blockers: Windows MAUI build/CI, progress/cancel integration tests,
+source seek tests and rendered A/V sync tests. No production readiness claim.
