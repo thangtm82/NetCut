@@ -15,7 +15,7 @@ public sealed class TimelineCanvas : GraphicsView
     public double PixelsPerSecond { get; set; } = 4;
     public string? SelectedId { get; set; }
     public IReadOnlyList<SubtitleCue> Subtitles { get; set; } = Array.Empty<SubtitleCue>();
-    public Dictionary<string, List<IImage>> Filmstrips { get; } = new();
+    public Dictionary<string, List<Microsoft.Maui.Graphics.IImage>> Filmstrips { get; } = new();
 
     public event Action<TimelineClip>? ClipSelected;
     public event Action<TimelineClip, double>? ClipMoved;
