@@ -477,6 +477,42 @@ public partial class MainPage : ContentPage
         RefreshTimeline();
     }
 
+    private void OnMediaDragStarting(object sender, DragStartingEventArgs e)
+    {
+        if (sender is BindableObject view && view.BindingContext is MediaItem media)
+            e.Data.Properties["NetCutMediaId"] = media.Id;
+    }
+
+    private void OnMediaDropped(object sender, DropEventArgs e)
+    {
+        if (!e.Data.Properties.TryGetValue("NetCutMediaId", out var id)) return;
+        var media = _project.Media.FirstOrDefault(m => m.Id == id as string);
+        if (media is null) return;
+        _history.Record(_project);
+        _project.Clips.Add(new TimelineClip {
+            MediaId = media.Id, Name = media.Name,
+            StartSeconds = PlayheadSlider.Value, InSeconds = 0,
+            OutSeconds = media.DurationSeconds,
+            TrackIndex = int.TryParse(TrackEntry.Text, out var index) ? Math.Clamp(index, 0, 8) : 0
+        });
+        RefreshTimeline();
+        StatusLabel.Text = "Dropped " + media.Name + " at playhead.";
+    }
+
+    private async void OnBuildWaveformsClicked(object sender, EventArgs e)
+    {
+        foreach (var media in _project.Media.Where(m => _project.Clips.Any(c => c.MediaId == m.Id)))
+        {
+            try
+            {
+                TimelineCanvas.Waveforms[media.Id] = await AudioWaveformService.ExtractAsync(media.Path);
+            }
+            catch (Exception) { } // Media without audio has no waveform.
+        }
+        TimelineCanvas.Refresh();
+        StatusLabel.Text = "Waveforms generated for available audio tracks.";
+    }
+
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
 
     private async void OnExportClicked(object sender, EventArgs e)
