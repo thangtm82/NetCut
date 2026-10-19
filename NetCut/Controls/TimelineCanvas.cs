@@ -24,6 +24,7 @@ public sealed class TimelineCanvas : GraphicsView
     public event Action<TimelineClip, bool, double>? ClipTrimmed;
     public event Action<double>? PlayheadRequested;
     public double PlayheadSeconds { get; set; }
+    public Dictionary<string, float[]> Waveforms { get; } = new();
     public event Action<TimelineClip>? ClipDragStarted;
     public event Action<TimelineClip>? ClipDragEnded;
 
@@ -107,7 +108,17 @@ public sealed class TimelineCanvas : GraphicsView
                 canvas.FillRectangle(x + width - 3, y + 5, 3, 34);
                 canvas.FontColor = Colors.White;
                 canvas.FontSize = 12;
-                canvas.DrawString(clip.Name, x + 6, y + 4, width - 12, 38, HorizontalAlignment.Left, VerticalAlignment.Center);
+                canvas.DrawString(clip.Name, x + 6, y + 2, width - 12, 17, HorizontalAlignment.Left, VerticalAlignment.Center);
+                if (owner.Waveforms.TryGetValue(clip.MediaId, out var peaks) && peaks.Length > 0)
+                {
+                    canvas.StrokeColor = Colors.LightGreen;
+                    for (var i = 0; i < peaks.Length; i++)
+                    {
+                        var sampleX = x + 5 + (width - 10) * i / peaks.Length;
+                        var amplitude = peaks[i] * 10;
+                        canvas.DrawLine(sampleX, y + 34 - amplitude, sampleX, y + 34 + amplitude);
+                    }
+                }
             }
         }
     }
