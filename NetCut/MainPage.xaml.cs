@@ -98,6 +98,29 @@ public partial class MainPage : ContentPage
         BindProject();
     }
 
+    private void ShowSidebar(string title, bool showLibrary = false)
+    {
+        SidebarTitle.Text = title;
+        bool media = title == "Media";
+        ProjectFilesTab.IsVisible = media;
+        LibraryTab.IsVisible = media;
+        SidebarImportButton.IsVisible = media;
+        MediaList.IsVisible = media && !showLibrary;
+        LibraryPlaceholder.IsVisible = !media || showLibrary;
+        LibraryPlaceholder.Text = media
+            ? "Library is reserved for reusable assets. Select Project Files to use imported media."
+            : title + " tools are available in the editor panels.";
+        ProjectFilesTab.BackgroundColor = Color.FromArgb(showLibrary ? "#2C323C" : "#3C4A5C");
+        LibraryTab.BackgroundColor = Color.FromArgb(showLibrary ? "#3C4A5C" : "#2C323C");
+    }
+
+    private void OnShowMediaPanelClicked(object sender, EventArgs e) => ShowSidebar("Media");
+    private void OnShowTextPanelClicked(object sender, EventArgs e) => ShowSidebar("Text");
+    private void OnShowAudioPanelClicked(object sender, EventArgs e) => ShowSidebar("Audio");
+    private void OnShowSettingsPanelClicked(object sender, EventArgs e) => ShowSidebar("Tools");
+    private void OnProjectFilesTabClicked(object sender, EventArgs e) => ShowSidebar("Media");
+    private void OnLibraryTabClicked(object sender, EventArgs e) => ShowSidebar("Media", true);
+
     private void BindProject()
     {
         MediaList.ItemsSource = _project.Media;
