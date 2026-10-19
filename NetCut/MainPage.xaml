@@ -77,7 +77,7 @@
 
     <Border Grid.Row="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
       <Grid RowDefinitions="Auto,*" RowSpacing="6">
-        <Label Text="TIMELINE (CLIPS)" TextColor="White" FontAttributes="Bold"/>
+        <HorizontalStackLayout Spacing="10"><Label Text="TIMELINE (CLIPS)" TextColor="White" FontAttributes="Bold"/><CheckBox x:Name="RippleCheckBox"/><Label Text="Ripple" TextColor="White"/><Label Text="Zoom" TextColor="White"/><Slider x:Name="TimelineZoomSlider" Minimum="15" Maximum="120" Value="35" WidthRequest="180" ValueChanged="OnTimelineZoomChanged"/><Button Text="Ripple Delete" Clicked="OnRippleDeleteClicked"/></HorizontalStackLayout>
         <CollectionView x:Name="TimelineList" Grid.Row="1" HeightRequest="60" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged">
           <CollectionView.ItemTemplate>
             <DataTemplate>
