@@ -20,6 +20,10 @@ public sealed class TimelineCanvas : GraphicsView
 
     private TimelineClip? _dragging;
     private double _dragOffset;
+    private string _mode = "move";
+    public event Action<TimelineClip, bool, double>? ClipTrimmed;
+    public event Action<double>? PlayheadRequested;
+    public double PlayheadSeconds { get; set; }
     public event Action<TimelineClip>? ClipDragStarted;
     public event Action<TimelineClip>? ClipDragEnded;
 
@@ -28,13 +32,16 @@ public sealed class TimelineCanvas : GraphicsView
     public void BeginPointer(double x, double y)
     {
         // 36px ruler; 54px per track.
-        if (y < 36) return;
+        if (y < 36) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
         var trackIndex = (int)((y - 36) / 54);
         _dragging = Clips.LastOrDefault(c => c.TrackIndex == trackIndex &&
             x >= c.StartSeconds * PixelsPerSecond &&
             x <= (c.StartSeconds + c.DurationSeconds) * PixelsPerSecond);
         if (_dragging is not null)
         {
+            var left = _dragging.StartSeconds * PixelsPerSecond;
+            var right = (_dragging.StartSeconds + _dragging.DurationSeconds) * PixelsPerSecond;
+            _mode = x - left < 10 ? "left" : right - x < 10 ? "right" : "move";
             _dragOffset = x / PixelsPerSecond - _dragging.StartSeconds;
             ClipDragStarted?.Invoke(_dragging);
             SelectedId = _dragging.Id;
@@ -47,7 +54,8 @@ public sealed class TimelineCanvas : GraphicsView
     {
         if (_dragging is null) return;
         var time = Math.Max(0, x / PixelsPerSecond - _dragOffset);
-        ClipMoved?.Invoke(_dragging, time);
+        if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
+        else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, x / PixelsPerSecond));
         Invalidate();
     }
 
@@ -84,6 +92,9 @@ public sealed class TimelineCanvas : GraphicsView
                 canvas.FontSize = 10;
                 canvas.DrawString($"V{i+1}", 3, y + 3, 30, 18, HorizontalAlignment.Left, VerticalAlignment.Center);
             }
+            canvas.StrokeColor = Colors.OrangeRed;
+            float px = (float)(owner.PlayheadSeconds * owner.PixelsPerSecond);
+            canvas.DrawLine(px, 0, px, dirtyRect.Height);
             foreach (var clip in owner.Clips)
             {
                 float x = (float)(clip.StartSeconds * owner.PixelsPerSecond);
@@ -91,6 +102,9 @@ public sealed class TimelineCanvas : GraphicsView
                 float width = (float)Math.Max(5, clip.DurationSeconds * owner.PixelsPerSecond);
                 canvas.FillColor = clip.Id == owner.SelectedId ? Color.FromArgb("#18A999") : Color.FromArgb("#167867");
                 canvas.FillRoundedRectangle(x, y, width, 46, 6);
+                canvas.FillColor = Colors.White;
+                canvas.FillRectangle(x, y + 5, 3, 34);
+                canvas.FillRectangle(x + width - 3, y + 5, 3, 34);
                 canvas.FontColor = Colors.White;
                 canvas.FontSize = 12;
                 canvas.DrawString(clip.Name, x + 6, y + 4, width - 12, 38, HorizontalAlignment.Left, VerticalAlignment.Center);
