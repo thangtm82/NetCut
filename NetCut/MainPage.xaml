@@ -40,6 +40,7 @@
           <controls:NativeVideoView x:Name="VideoPreview" HeightRequest="260" />
           <Image x:Name="CompositedFrame" HeightRequest="260" IsVisible="False" Aspect="AspectFit"/>
           <Button Text="Render Composite Frame" Clicked="OnRenderFrameClicked"/>
+          <Button x:Name="PreviewSegmentButton" Text="Play 5s Composed Preview" Clicked="OnPreviewSegmentClicked"/>
           <HorizontalStackLayout Spacing="8">
             <Button Text="Play" Clicked="OnPlayClicked"/>
             <Button Text="Pause" Clicked="OnPauseClicked"/>
