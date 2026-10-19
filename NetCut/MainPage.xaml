@@ -18,24 +18,49 @@
       <Button x:Name="CancelExportButton" Text="Cancel Export" Clicked="OnCancelExportClicked" IsEnabled="False"/>
     </HorizontalStackLayout>
 
-    <Grid Grid.Row="1" ColumnDefinitions="290,*,300" ColumnSpacing="12">
-      <Border Grid.Column="0" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
-        <Grid RowDefinitions="Auto,*" RowSpacing="8">
-          <Label Text="PROJECT MEDIA" TextColor="White" FontAttributes="Bold"/>
-          <CollectionView x:Name="MediaList" Grid.Row="1" SelectionMode="Single">
-            <CollectionView.ItemTemplate>
-              <DataTemplate>
-                <Grid Padding="8">
-                  <Grid.GestureRecognizers><DragGestureRecognizer CanDrag="True" DragStarting="OnMediaDragStarting"/></Grid.GestureRecognizers>
-                  <Label Text="{Binding Name}" TextColor="#E4E8EF" LineBreakMode="TailTruncation"/>
-                </Grid>
-              </DataTemplate>
-            </CollectionView.ItemTemplate>
-          </CollectionView>
+    <Grid Grid.Row="1" ColumnDefinitions="52,254,*,300" ColumnSpacing="8">
+      <Border Grid.Column="0" BackgroundColor="#1E222A" StrokeThickness="0" Padding="3">
+        <VerticalStackLayout Spacing="8">
+          <Button Text="▣" Clicked="OnShowMediaPanelClicked" BackgroundColor="#344252" TextColor="#FFFFFF" FontSize="20" Padding="5" HeightRequest="42"/>
+          <Label Text="Media" FontSize="10" TextColor="#D5DFEA" HorizontalTextAlignment="Center"/>
+          <Button Text="T" Clicked="OnShowTextPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
+          <Label Text="Text" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
+          <Button Text="♫" Clicked="OnShowAudioPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
+          <Label Text="Audio" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
+          <Button Text="⚙" Clicked="OnShowSettingsPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
+          <Label Text="Tools" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
+        </VerticalStackLayout>
+      </Border>
+      <Border Grid.Column="1" BackgroundColor="#242933" StrokeThickness="0" Padding="10">
+        <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+          <Label x:Name="SidebarTitle" Text="Media" FontSize="17" TextColor="#F3F6FA" FontAttributes="Bold"/>
+          <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="5">
+            <Button x:Name="ProjectFilesTab" Text="Project Files" Clicked="OnProjectFilesTabClicked" BackgroundColor="#3C4A5C" TextColor="White" Padding="4" FontSize="11"/>
+            <Button x:Name="LibraryTab" Grid.Column="1" Text="Library" Clicked="OnLibraryTabClicked" BackgroundColor="#2C323C" TextColor="#CAD3DF" Padding="4" FontSize="11"/>
+          </Grid>
+          <Button x:Name="SidebarImportButton" Grid.Row="2" Text="+ Import Media" Clicked="OnImportClicked" BackgroundColor="#176FE5" TextColor="White" FontAttributes="Bold"/>
+          <Grid Grid.Row="3">
+            <CollectionView x:Name="MediaList" SelectionMode="Single">
+              <CollectionView.EmptyView>
+                <Label Text="No imported media yet. Use Import Media to add files." TextColor="#9BA8B8" FontSize="12" Margin="6,14"/>
+              </CollectionView.EmptyView>
+              <CollectionView.ItemTemplate>
+                <DataTemplate>
+                  <Border BackgroundColor="#303845" StrokeThickness="0" Padding="8" Margin="0,3">
+                    <Grid>
+                      <Grid.GestureRecognizers><DragGestureRecognizer CanDrag="True" DragStarting="OnMediaDragStarting"/></Grid.GestureRecognizers>
+                      <Label Text="{Binding Name}" TextColor="#EEF2F7" FontSize="12" LineBreakMode="TailTruncation"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </CollectionView.ItemTemplate>
+            </CollectionView>
+            <Label x:Name="LibraryPlaceholder" Text="Library will show reusable assets. Imported files remain in Project Files." IsVisible="False" TextColor="#B5C1D0" FontSize="12" Margin="6,14"/>
+          </Grid>
         </Grid>
       </Border>
 
-      <Border Grid.Column="1" BackgroundColor="#0B0D10" StrokeThickness="0" Padding="16">
+      <Border Grid.Column="2" BackgroundColor="#0B0D10" StrokeThickness="0" Padding="16">
         <VerticalStackLayout Spacing="12">
           <Label Text="PREVIEW" TextColor="#B8C0CB" FontAttributes="Bold"/>
           <controls:NativeVideoView x:Name="VideoPreview" HeightRequest="260" />
@@ -59,7 +84,7 @@
         </VerticalStackLayout>
       </Border>
 
-      <Border Grid.Column="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
+      <Border Grid.Column="3" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
         <VerticalStackLayout Spacing="10">
           <Label Text="CLIP INSPECTOR" TextColor="White" FontAttributes="Bold"/>
           <Label Text="In point (seconds)" TextColor="White"/>
