@@ -247,7 +247,12 @@ public partial class MainPage : ContentPage
 
     private async void OnExportClicked(object sender, EventArgs e)
     {
-        if (_project.Clips.Count == 0) { await DisplayAlert("Export", "No clips on timeline.", "OK"); return; }
+        var renderErrors = RenderValidation.CheckSequence(_project);
+        if (renderErrors.Count > 0)
+        {
+            await DisplayAlert("Export validation", string.Join("\n", renderErrors.Take(6)), "OK");
+            return;
+        }
         var output = Path.Combine(FileSystem.AppDataDirectory, "exports", SanitizeFileName(_project.Name) + ".mp4");
         try
         {
