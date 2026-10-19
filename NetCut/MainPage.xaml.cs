@@ -69,6 +69,7 @@ public partial class MainPage : ContentPage
             PreviewClip(clip);
         };
         TimelineCanvas.PlayheadRequested += seconds => PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+        TimelineCanvas.PlayheadScrubEnded += _ => OnSeekClicked(this, EventArgs.Empty);
         TimelineCanvas.ClipTrimmed += (clip, left, seconds) =>
         {
             try
