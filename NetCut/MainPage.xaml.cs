@@ -183,6 +183,7 @@ public partial class MainPage : ContentPage
             OutSeconds = media.DurationSeconds
         });
         RefreshTimeline();
+        _ = PopulateWaveformAsync(media);
         StatusLabel.Text = $"Added {media.Name} to timeline.";
     }
 
@@ -209,6 +210,7 @@ public partial class MainPage : ContentPage
         _project.Clips.Add(clip);
         RefreshTimeline();
         TimelineList.SelectedItem = clip;
+        _ = PopulateWaveformAsync(media);
         StatusLabel.Text = $"Dropped {media.Name} onto track {track + 1} at {clip.StartSeconds:F2}s.";
     }
 
@@ -571,6 +573,18 @@ public partial class MainPage : ContentPage
         _history.Record(_project);
         AdvancedTimelineEditor.RippleDelete(_project, clip);
         RefreshTimeline();
+    }
+
+    private async Task PopulateWaveformAsync(MediaItem media)
+    {
+        if (TimelineCanvas.Waveforms.ContainsKey(media.Id)) return;
+        try
+        {
+            var peaks = await AudioWaveformService.ExtractAsync(media.Path, buckets: 1200);
+            TimelineCanvas.Waveforms[media.Id] = peaks;
+            TimelineCanvas.Refresh();
+        }
+        catch (Exception) { /* Silent media or unavailable FFmpeg: show empty audio lane. */ }
     }
 
     private async void OnBuildWaveformsClicked(object sender, EventArgs e)
