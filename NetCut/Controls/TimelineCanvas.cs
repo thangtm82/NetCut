@@ -26,6 +26,17 @@ public sealed class TimelineCanvas : GraphicsView
     private TimelineClip? _dragging;
     private double _dragOffset;
     private string _mode = "move";
+    private bool _scrubbingPlayhead;
+    public bool IsScrubbingPlayhead => _scrubbingPlayhead;
+    public event Action<double>? PlayheadScrubEnded;
+    private double ClampPointerTime(double x) => Math.Clamp(XToSeconds(x), 0, Math.Max(0, ProjectDurationSeconds));
+    private void ScrubTo(double x)
+    {
+        var seconds = ClampPointerTime(x);
+        PlayheadSeconds = seconds;
+        PlayheadRequested?.Invoke(seconds);
+        Invalidate();
+    }
     public event Action<TimelineClip, bool, double>? ClipTrimmed;
     public event Action<double>? PlayheadRequested;
     public double PlayheadSeconds { get; set; }
@@ -37,8 +48,15 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void BeginPointer(double x, double y)
     {
-        // 42px ruler; 82px per track.
-        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, XToSeconds(x))); return; }
+        // Drag the ruler handle or the vertical playhead line to scrub continuously.
+        double handleX = (PlayheadSeconds - ViewStartSeconds) * PixelsPerSecond;
+        if (y < 26 || (Math.Abs(x - handleX) <= 9 && y <= Height))
+        {
+            _scrubbingPlayhead = true;
+            _dragging = null;
+            ScrubTo(x);
+            return;
+        }
         if (y >= 86) return;
         _dragging = Clips.OrderBy(c => c.TrackIndex).LastOrDefault(c =>
             XToSeconds(x) >= c.StartSeconds &&
@@ -58,6 +76,7 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void MovePointer(double x)
     {
+        if (_scrubbingPlayhead) { ScrubTo(x); return; }
         if (_dragging is null) return;
         var time = Math.Max(0, XToSeconds(x) - _dragOffset);
         if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
@@ -67,6 +86,12 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void EndPointer()
     {
+        if (_scrubbingPlayhead)
+        {
+            _scrubbingPlayhead = false;
+            PlayheadScrubEnded?.Invoke(PlayheadSeconds);
+            return;
+        }
         var clip = _dragging;
         _dragging = null;
         if (clip is not null) ClipDragEnded?.Invoke(clip);
