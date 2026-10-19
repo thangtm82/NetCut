@@ -14,6 +14,11 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _frameCancellation;
     private CancellationTokenSource? _previewCancellation;
     private CancellationTokenSource? _continuousCancellation;
+    private readonly ChunkPreviewCache _chunkCache = new();
+    private CancellationTokenSource? _chunkCancellation;
+    private int _activeChunk = -1;
+    private bool _chunkPlayback;
+    private double _chunkOffset;
 
     public MainPage()
     {
@@ -42,6 +47,17 @@ public partial class MainPage : ContentPage
         TimelineCanvas.ClipMoved += (clip, seconds) => {
             clip.StartSeconds = TimelineEditor.Snap(seconds, _project.Clips, clip.Id);
             StatusLabel.Text = $"Moved {clip.Name} to {seconds:F2}s";
+        };
+        VideoPreview.PlaybackPositionChanged += (_, seconds) =>
+        {
+            if (_chunkPlayback) PlayheadSlider.Value = Math.Clamp(_chunkOffset + seconds, 0, _project.DurationSeconds);
+        };
+        VideoPreview.PlaybackEnded += async (_, _) =>
+        {
+            if (!_chunkPlayback || _chunkCancellation is null) return;
+            try { await PlayChunkAsync(_activeChunk + 1, 0, _chunkCancellation.Token); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { StopChunks(); await ShowError(ex); }
         };
         BindProject();
     }
@@ -365,6 +381,62 @@ public partial class MainPage : ContentPage
         _continuousCancellation?.Cancel();
         VideoPreview.Pause();
         StatusLabel.Text = "Preview stopped.";
+    }
+
+    private async void OnPlayChunksClicked(object sender, EventArgs e)
+    {
+        StopChunks();
+        _chunkCancellation = new CancellationTokenSource();
+        _chunkPlayback = true;
+        var index = ChunkPreviewCache.Index(PlayheadSlider.Value);
+        try { await PlayChunkAsync(index, PlayheadSlider.Value - ChunkPreviewCache.Start(index), _chunkCancellation.Token); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { StopChunks(); await ShowError(ex); }
+    }
+
+    private async Task PlayChunkAsync(int index, double offset, CancellationToken token)
+    {
+        if (ChunkPreviewCache.Start(index) >= _project.DurationSeconds)
+        {
+            StopChunks();
+            StatusLabel.Text = "Timeline preview complete.";
+            return;
+        }
+        StatusLabel.Text = $"Preparing chunk {index + 1}...";
+        var proxy = await _chunkCache.GetAsync(_project, index, token);
+        token.ThrowIfCancellationRequested();
+        _activeChunk = index;
+        _chunkOffset = ChunkPreviewCache.Start(index);
+        CompositedFrame.IsVisible = false;
+        VideoPreview.IsVisible = true;
+        VideoPreview.Pause();
+        VideoPreview.SourcePath = proxy;
+        VideoPreview.PositionSeconds = offset;
+        VideoPreview.Play();
+        StatusLabel.Text = $"Playing chunk {index + 1}";
+        _ = PrefetchChunkAsync(index + 1, token);
+    }
+
+    private async Task PrefetchChunkAsync(int index, CancellationToken token)
+    {
+        if (ChunkPreviewCache.Start(index) >= _project.DurationSeconds) return;
+        try { await _chunkCache.GetAsync(_project, index, token); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { }
+    }
+
+    private void StopChunks()
+    {
+        _chunkPlayback = false;
+        _chunkCancellation?.Cancel();
+        _chunkCancellation = null;
+        VideoPreview.Pause();
+    }
+
+    private void OnStopChunksClicked(object sender, EventArgs e)
+    {
+        StopChunks();
+        StatusLabel.Text = "Chunk preview stopped.";
     }
 
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
