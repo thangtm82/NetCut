@@ -104,6 +104,7 @@
           <Label Grid.Column="1" Text="Drag clips • trim edges • click ruler to seek" FontSize="10" TextColor="#7C8793" VerticalTextAlignment="Center" Margin="4,0"/>
         </Grid>
         <Grid Grid.Row="2" ColumnDefinitions="26,*" BackgroundColor="#F4F5F7">
+          <CollectionView x:Name="TimelineList" IsVisible="False" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged" />
           <Grid Grid.Column="0" RowDefinitions="26,60,28,28" BackgroundColor="#F0F2F5">
             <Label Grid.Row="0" Text="◉" TextColor="#77818E" HorizontalTextAlignment="Center"/>
             <Label Grid.Row="1" Text="◉" TextColor="#697685" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
