@@ -38,7 +38,7 @@ public sealed class TimelineCanvas : GraphicsView
     public void BeginPointer(double x, double y)
     {
         // 42px ruler; 82px per track.
-        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, x / PixelsPerSecond)); return; }
+        if (y < 26) { PlayheadRequested?.Invoke(Math.Max(0, XToSeconds(x))); return; }
         if (y >= 86) return;
         _dragging = Clips.OrderBy(c => c.TrackIndex).LastOrDefault(c =>
             XToSeconds(x) >= c.StartSeconds &&
@@ -48,7 +48,7 @@ public sealed class TimelineCanvas : GraphicsView
             var left = (_dragging.StartSeconds - ViewStartSeconds) * PixelsPerSecond;
             var right = (_dragging.StartSeconds + _dragging.DurationSeconds - ViewStartSeconds) * PixelsPerSecond;
             _mode = x - left < 10 ? "left" : right - x < 10 ? "right" : "move";
-            _dragOffset = x / PixelsPerSecond - _dragging.StartSeconds;
+            _dragOffset = XToSeconds(x) - _dragging.StartSeconds;
             ClipDragStarted?.Invoke(_dragging);
             SelectedId = _dragging.Id;
             ClipSelected?.Invoke(_dragging);
@@ -59,7 +59,7 @@ public sealed class TimelineCanvas : GraphicsView
     public void MovePointer(double x)
     {
         if (_dragging is null) return;
-        var time = Math.Max(0, x / PixelsPerSecond - _dragOffset);
+        var time = Math.Max(0, XToSeconds(x) - _dragOffset);
         if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
         else ClipTrimmed?.Invoke(_dragging, _mode == "left", Math.Max(0, x / PixelsPerSecond));
         Invalidate();
