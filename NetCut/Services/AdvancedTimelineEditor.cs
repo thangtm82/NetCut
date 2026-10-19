@@ -11,8 +11,16 @@ public static class AdvancedTimelineEditor
         var start = Math.Clamp(newStart, Math.Max(0, clip.StartSeconds - clip.InSeconds), oldEnd - TimelineEditor.MinClipSeconds);
         var delta = start - clip.StartSeconds;
         clip.InSeconds += delta;
-        clip.StartSeconds = start;
-        if (ripple) ShiftFollowing(project, clip, oldEnd, -delta);
+        if (ripple)
+        {
+            // Ripple-left keeps the clip anchored and closes/opens the duration.
+            ShiftFollowing(project, clip, oldEnd, -delta);
+        }
+        else
+        {
+            // Slip the left boundary without changing the original end.
+            clip.StartSeconds = start;
+        }
     }
 
     public static void TrimRight(ProjectDocument project, TimelineClip clip, double newEnd, bool ripple)
