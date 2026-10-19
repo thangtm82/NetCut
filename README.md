@@ -87,3 +87,22 @@ slider is not continuously updated from actual playback position. Media changes
 not reflected by file size/mtime may evade invalidation. Cache eviction is not
 automatic. Audio/video sync depends on experimental FFmpeg compositor output.
 Windows runtime validation is still needed.
+
+
+### Phase 8 chunk preview (experimental)
+
+Use **Play Cached Chunks** to start a five-second timeline-chunk playback
+at the slider position. Each chunk has a content-addressed cache identity
+computed from intersecting clips and source file modification metadata.
+The next chunk is prefetched before playback reaches the boundary.
+WinUI PlaybackSession reports the current position to the MAUI slider;
+the next chunk starts when MediaEnded fires. Preview cache uses an
+approximate 2 GiB least-recently-used cleanup policy. Entirely empty
+intervals render black and silent, and trailing gaps are preserved.
+
+**Caveats:** Chunk transitions can stutter if FFmpeg is still rendering;
+there is no seamless buffered playlist or GPU-accelerated live compositor.
+Audio continuity at segment boundaries, caching under concurrent edits,
+player seek/position behavior and background task cancellation require
+Windows runtime testing. A successful CI build alone does not guarantee
+accurate playback. The old full-timeline cache mode remains available.
