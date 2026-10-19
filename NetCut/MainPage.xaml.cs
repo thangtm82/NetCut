@@ -10,6 +10,8 @@ public partial class MainPage : ContentPage
     private string? _projectPath;
     private readonly ProjectHistory _history = new();
     private double? _dragStart;
+    private double? _trimStartIn;
+    private double? _trimStartOut;
     private CancellationTokenSource? _exportCancellation;
     private CancellationTokenSource? _frameCancellation;
     private CancellationTokenSource? _previewCancellation;
@@ -32,11 +34,17 @@ public partial class MainPage : ContentPage
         TimelineCanvas.EndInteraction += (_, _) => TimelineCanvas.EndPointer();
         TimelineCanvas.ClipDragStarted += clip => {
             _dragStart = clip.StartSeconds;
+            _trimStartIn = clip.InSeconds;
+            _trimStartOut = clip.OutSeconds;
             _history.Record(_project);
         };
         TimelineCanvas.ClipDragEnded += clip => {
-            if (_dragStart is double before && Math.Abs(before - clip.StartSeconds) < 0.001)
+            if (_dragStart is double before && Math.Abs(before - clip.StartSeconds) < 0.001 &&
+                _trimStartIn is double initialIn && Math.Abs(initialIn - clip.InSeconds) < 0.001 &&
+                _trimStartOut is double initialOut && Math.Abs(initialOut - clip.OutSeconds) < 0.001)
                 _history.DiscardLast();
+            _trimStartIn = null;
+            _trimStartOut = null;
             _dragStart = null;
             RefreshTimeline();
         };
