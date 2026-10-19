@@ -11,9 +11,6 @@ public static class MauiProgram
 #if WINDOWS
         builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<NetCut.Controls.NativeVideoView, NetCut.Platforms.Windows.NativeVideoHandler>());
 #endif
-#if DEBUG
-        builder.Logging.AddDebug();
-#endif
         return builder.Build();
     }
 }
