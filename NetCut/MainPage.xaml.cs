@@ -13,6 +13,7 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _exportCancellation;
     private CancellationTokenSource? _frameCancellation;
     private CancellationTokenSource? _previewCancellation;
+    private CancellationTokenSource? _continuousCancellation;
 
     public MainPage()
     {
@@ -324,6 +325,46 @@ public partial class MainPage : ContentPage
             _previewCancellation = null;
             PreviewSegmentButton.IsEnabled = true;
         }
+    }
+
+    private async void OnContinuousPreviewClicked(object sender, EventArgs e)
+    {
+        if (_continuousCancellation is not null) return;
+        var cancellation = new CancellationTokenSource();
+        _continuousCancellation = cancellation;
+        ContinuousPreviewButton.IsEnabled = false;
+        try
+        {
+            StatusLabel.Text = "Preparing full composed preview (cached render)...";
+            var progress = new Progress<double>(fraction =>
+            {
+                StatusLabel.Text = $"Preparing preview... {fraction:P0}";
+            });
+            var proxy = await ContinuousPreviewCache.GetOrRenderAsync(_project, progress, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            CompositedFrame.IsVisible = false;
+            VideoPreview.IsVisible = true;
+            VideoPreview.Pause();
+            VideoPreview.SourcePath = proxy;
+            VideoPreview.PositionSeconds = Math.Clamp(PlayheadSlider.Value, 0, _project.DurationSeconds);
+            VideoPreview.Play();
+            StatusLabel.Text = "Playing cached full-timeline proxy. Use native transport controls to seek.";
+        }
+        catch (OperationCanceledException) { StatusLabel.Text = "Preview render cancelled."; }
+        catch (Exception ex) { await ShowError(ex); }
+        finally
+        {
+            _continuousCancellation = null;
+            cancellation.Dispose();
+            ContinuousPreviewButton.IsEnabled = true;
+        }
+    }
+
+    private void OnStopContinuousPreviewClicked(object sender, EventArgs e)
+    {
+        _continuousCancellation?.Cancel();
+        VideoPreview.Pause();
+        StatusLabel.Text = "Preview stopped.";
     }
 
     private void OnCancelExportClicked(object sender, EventArgs e) => _exportCancellation?.Cancel();
