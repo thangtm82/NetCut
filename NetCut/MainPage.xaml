@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NetCut.MainPage"
+             Title="NetCut"
+             BackgroundColor="#15171B">
+  <Grid RowDefinitions="Auto,*,220,Auto" Padding="14" RowSpacing="12">
+    <HorizontalStackLayout Spacing="10" Grid.Row="0">
+      <Label Text="NETCUT" FontSize="26" FontAttributes="Bold" TextColor="#F5F7FA" VerticalOptions="Center"/>
+      <Button Text="New" Clicked="OnNewClicked"/>
+      <Button Text="Open Project" Clicked="OnOpenClicked"/>
+      <Button Text="Save Project" Clicked="OnSaveClicked"/>
+      <Button Text="Import Media" Clicked="OnImportClicked"/>
+      <Button Text="Export MP4" Clicked="OnExportClicked"/>
+    </HorizontalStackLayout>
+
+    <Grid Grid.Row="1" ColumnDefinitions="290,*,300" ColumnSpacing="12">
+      <Border Grid.Column="0" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
+        <Grid RowDefinitions="Auto,*" RowSpacing="8">
+          <Label Text="PROJECT MEDIA" TextColor="White" FontAttributes="Bold"/>
+          <CollectionView x:Name="MediaList" Grid.Row="1" SelectionMode="Single">
+            <CollectionView.ItemTemplate>
+              <DataTemplate>
+                <Grid Padding="8">
+                  <Label Text="{Binding Name}" TextColor="#E4E8EF" LineBreakMode="TailTruncation"/>
+                </Grid>
+              </DataTemplate>
+            </CollectionView.ItemTemplate>
+          </CollectionView>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" BackgroundColor="#0B0D10" StrokeThickness="0" Padding="16">
+        <VerticalStackLayout Spacing="12">
+          <Label Text="PREVIEW" TextColor="#B8C0CB" FontAttributes="Bold"/>
+          <Label Text="Native preview will be implemented with a Windows media surface. No WebView is used."
+                 TextColor="#8F98A7" HorizontalTextAlignment="Center" VerticalOptions="Center" HeightRequest="180"/>
+          <Label x:Name="ProjectNameLabel" Text="Untitled Project" FontSize="21" TextColor="White"
+                 HorizontalTextAlignment="Center"/>
+          <Button Text="Add Selected Media to Timeline" Clicked="OnAddClipClicked"/>
+        </VerticalStackLayout>
+      </Border>
+
+      <Border Grid.Column="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
+        <VerticalStackLayout Spacing="10">
+          <Label Text="CLIP INSPECTOR" TextColor="White" FontAttributes="Bold"/>
+          <Label Text="In point (seconds)" TextColor="White"/>
+          <Entry x:Name="InEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
+          <Label Text="Out point (seconds)" TextColor="White"/>
+          <Entry x:Name="OutEntry" Text="0" Keyboard="Numeric" TextColor="White"/>
+          <Button Text="Apply Trim to Selected Clip" Clicked="OnApplyTrimClicked"/>
+          <Button Text="Remove Clip" Clicked="OnRemoveClipClicked"/>
+        </VerticalStackLayout>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2" BackgroundColor="#24272E" StrokeThickness="0" Padding="12">
+      <Grid RowDefinitions="Auto,*" RowSpacing="6">
+        <Label Text="TIMELINE (CLIPS)" TextColor="White" FontAttributes="Bold"/>
+        <CollectionView x:Name="TimelineList" Grid.Row="1" SelectionMode="Single" SelectionChanged="OnTimelineSelectionChanged">
+          <CollectionView.ItemTemplate>
+            <DataTemplate>
+              <Border BackgroundColor="#166F61" Padding="12" Margin="2">
+                <Label Text="{Binding Name}" TextColor="White"/>
+              </Border>
+            </DataTemplate>
+          </CollectionView.ItemTemplate>
+        </CollectionView>
+      </Grid>
+    </Border>
+
+    <Label x:Name="StatusLabel" Grid.Row="3" Text="Ready" TextColor="#C9D2DB"/>
+  </Grid>
+</ContentPage>
