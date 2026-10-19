@@ -8,6 +8,7 @@ public partial class MainPage : ContentPage
 {
     private ProjectDocument _project = new();
     private string? _projectPath;
+    private readonly ProjectHistory _history = new();
 
     public MainPage()
     {
@@ -24,7 +25,7 @@ public partial class MainPage : ContentPage
             PreviewClip(clip);
         };
         TimelineCanvas.ClipMoved += (clip, seconds) => {
-            clip.StartSeconds = seconds;
+            clip.StartSeconds = TimelineEditor.Snap(seconds, _project.Clips, clip.Id);
             StatusLabel.Text = $"Moved {clip.Name} to {seconds:F2}s";
         };
         BindProject();
@@ -44,6 +45,7 @@ public partial class MainPage : ContentPage
         if (name is null) return;
         _project = new ProjectDocument { Name = string.IsNullOrWhiteSpace(name) ? "Untitled Project" : name.Trim() };
         _projectPath = null;
+        _history.Clear();
         BindProject();
         StatusLabel.Text = "Created a new project.";
     }
@@ -56,6 +58,7 @@ public partial class MainPage : ContentPage
             if (file is null) return;
             _project = await ProjectService.LoadAsync(file.FullPath);
             _projectPath = file.FullPath;
+            _history.Clear();
             BindProject();
             StatusLabel.Text = $"Opened {_project.Name}.";
         }
@@ -101,6 +104,7 @@ public partial class MainPage : ContentPage
             await DisplayAlert("Media", "Select one imported media item first.", "OK");
             return;
         }
+        _history.Record(_project);
         _project.Clips.Add(new TimelineClip
         {
             MediaId = media.Id,
@@ -137,6 +141,7 @@ public partial class MainPage : ContentPage
             await DisplayAlert("Trim", "Trim range must be within media duration.", "OK");
             return;
         }
+        _history.Record(_project);
         TimelineEditor.Trim(_project, clip.Id, start, end);
         TimelineList.ItemsSource = null;
         TimelineList.ItemsSource = _project.Clips;
@@ -148,6 +153,7 @@ public partial class MainPage : ContentPage
     {
         if (TimelineList.SelectedItem is TimelineClip clip)
         {
+            _history.Record(_project);
             _project.Clips.Remove(clip);
             RefreshTimeline();
             StatusLabel.Text = "Clip removed.";
@@ -181,6 +187,7 @@ public partial class MainPage : ContentPage
             await DisplayAlert("Track", "Enter a track index from 0 to 8.", "OK");
             return;
         }
+        _history.Record(_project);
         TimelineEditor.Move(clip, clip.StartSeconds, track);
         RefreshTimeline();
     }
@@ -202,12 +209,29 @@ public partial class MainPage : ContentPage
         }
         try
         {
+            _history.Record(_project);
             var (_, right) = TimelineEditor.Split(_project, clip.Id, seconds);
             RefreshTimeline();
             TimelineList.SelectedItem = right;
             StatusLabel.Text = $"Split {clip.Name} at {seconds:F2}s";
         }
         catch (Exception ex) { await ShowError(ex); }
+    }
+
+    private void OnUndoClicked(object sender, EventArgs e)
+    {
+        if (!_history.CanUndo) return;
+        _project = _history.Undo(_project);
+        BindProject();
+        StatusLabel.Text = "Undo complete.";
+    }
+
+    private void OnRedoClicked(object sender, EventArgs e)
+    {
+        if (!_history.CanRedo) return;
+        _project = _history.Redo(_project);
+        BindProject();
+        StatusLabel.Text = "Redo complete.";
     }
 
     private async void OnExportClicked(object sender, EventArgs e)
