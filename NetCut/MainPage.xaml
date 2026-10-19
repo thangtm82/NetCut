@@ -38,6 +38,8 @@
         <VerticalStackLayout Spacing="12">
           <Label Text="PREVIEW" TextColor="#B8C0CB" FontAttributes="Bold"/>
           <controls:NativeVideoView x:Name="VideoPreview" HeightRequest="260" />
+          <Image x:Name="CompositedFrame" HeightRequest="260" IsVisible="False" Aspect="AspectFit"/>
+          <Button Text="Render Composite Frame" Clicked="OnRenderFrameClicked"/>
           <HorizontalStackLayout Spacing="8">
             <Button Text="Play" Clicked="OnPlayClicked"/>
             <Button Text="Pause" Clicked="OnPauseClicked"/>
