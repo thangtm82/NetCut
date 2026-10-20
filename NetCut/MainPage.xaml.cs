@@ -69,7 +69,13 @@ public partial class MainPage : ContentPage
             PreviewClip(clip);
         };
         TimelineCanvas.PlayheadRequested += seconds => PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+        TimelineCanvas.PlayheadScrubStarted += _ => { _previewPlaying = false; VideoPreview.Pause(); };
         TimelineCanvas.PlayheadScrubEnded += _ => OnSeekClicked(this, EventArgs.Empty);
+        TimelineCanvas.ScrubEdgePanRequested += deltaPixels =>
+        {
+            _viewStartSeconds = Math.Clamp(_viewStartSeconds + deltaPixels / Math.Max(.01, TimelineCanvas.PixelsPerSecond), 0, MaxViewStart);
+            UpdateViewport();
+        };
         TimelineCanvas.ClipTrimmed += (clip, left, seconds) =>
         {
             try
@@ -293,6 +299,7 @@ public partial class MainPage : ContentPage
         _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, MaxViewStart);
         TimelineCanvas.ViewStartSeconds = _viewStartSeconds;
         TimelineCanvas.ProjectDurationSeconds = _project.DurationSeconds;
+        TimelineCanvas.ViewportWidth = ViewportWidth;
         TimelinePanSlider.Maximum = Math.Max(1, MaxViewStart);
         TimelinePanSlider.Value = _viewStartSeconds;
         TimelineCanvas.Refresh();
