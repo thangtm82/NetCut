@@ -9,6 +9,7 @@ namespace NetCut.Platforms.Windows;
 public sealed class NativeVideoHandler : ViewHandler<NativeVideoView, MediaPlayerElement>
 {
     private MediaPlayer? _player;
+    private string? _loadedSourcePath;
     private DateTime _lastPositionReport = DateTime.MinValue;
 
     public static readonly IPropertyMapper<NativeVideoView, NativeVideoHandler> Mapper =
@@ -57,9 +58,13 @@ public sealed class NativeVideoHandler : ViewHandler<NativeVideoView, MediaPlaye
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             handler._player.Source = null;
+            handler._loadedSourcePath = null;
             return;
         }
-        handler._player.Source = MediaSource.CreateFromUri(new Uri(Path.GetFullPath(path)));
+        string fullPath = Path.GetFullPath(path);
+        if (string.Equals(handler._loadedSourcePath, fullPath, StringComparison.OrdinalIgnoreCase)) return;
+        handler._loadedSourcePath = fullPath;
+        handler._player.Source = MediaSource.CreateFromUri(new Uri(fullPath));
     }
 
     private static void MapPosition(NativeVideoHandler handler, NativeVideoView view)
