@@ -116,10 +116,17 @@ public partial class MainPage : ContentPage
         LibraryPlaceholder.Text = media
             ? "Library is reserved for reusable assets. Select Project Files to use imported media."
             : title + " tools are available in the editor panels.";
-        ProjectFilesTab.BackgroundColor = Color.FromArgb(showLibrary ? "#2C323C" : "#3C4A5C");
-        LibraryTab.BackgroundColor = Color.FromArgb(showLibrary ? "#3C4A5C" : "#2C323C");
+        ProjectFilesTab.BackgroundColor = Color.FromArgb(showLibrary ? "#F2F3F6" : "#E8EBF1");
+        LibraryTab.BackgroundColor = Color.FromArgb(showLibrary ? "#E8EBF1" : "#F2F3F6");
     }
 
+    private void OnShowElementsPanelClicked(object sender, EventArgs e) => ShowSidebar("Elements");
+    private void OnShowEffectsPanelClicked(object sender, EventArgs e) => ShowSidebar("Effects");
+    private void OnShowTransitionsPanelClicked(object sender, EventArgs e) => ShowSidebar("Transitions");
+    private void OnShowVideoPanelClicked(object sender, EventArgs e) => ShowSidebar("Video");
+    private void OnShowImagePanelClicked(object sender, EventArgs e) => ShowSidebar("Image");
+    private void OnShowSubtitlesPanelClicked(object sender, EventArgs e) => ShowSidebar("Subtitles");
+    private void OnShowDetailsPanelClicked(object sender, EventArgs e) => ShowSidebar("Details");
     private void OnShowMediaPanelClicked(object sender, EventArgs e) => ShowSidebar("Media");
     private void OnShowTextPanelClicked(object sender, EventArgs e) => ShowSidebar("Text");
     private void OnShowAudioPanelClicked(object sender, EventArgs e) => ShowSidebar("Audio");
@@ -132,6 +139,7 @@ public partial class MainPage : ContentPage
         MediaList.ItemsSource = _project.Media;
         TimelineList.ItemsSource = _project.Clips;
         ProjectNameLabel.Text = _project.Name;
+        ProjectNameHeader.Text = _project.Name;
         RefreshTimeline();
         PlayheadSlider.Maximum = Math.Max(1, _project.DurationSeconds);
     }
