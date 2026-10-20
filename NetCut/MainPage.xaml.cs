@@ -122,6 +122,7 @@ public partial class MainPage : ContentPage
         {
             if (_chunkPlayback)
             {
+                if (!_composedPlayRequested) return;
                 PlayheadSlider.Value = Math.Clamp(_chunkOffset + seconds, 0, _project.DurationSeconds);
                 return;
             }
@@ -395,23 +396,16 @@ public partial class MainPage : ContentPage
     private async void OnPlayClicked(object sender, EventArgs e)
     {
         if (_project.Clips.Count == 0) return;
-        // Play the actual multi-track timeline proxy, not only the top source clip.
-        await StartComposedPlaybackAsync(PlayheadSlider.Value);
-        return;
-#pragma warning disable CS0162
-        if (_project.Clips.Count == 0) return;
-        var clip = SeekTimelinePreview(PlayheadSlider.Value);
-        if (clip is null)
+        if (_chunkPlayback && !_composedPlayRequested)
         {
-            ContinueTimelineAt(PlayheadSlider.Value);
+            _composedPlayRequested = true;
+            _previewPlaying = true;
+            VideoPreview.Play();
+            TimelinePlayButton.Text = "Ⅱ";
             return;
         }
-        _playingTimelineClip = clip;
-        _timelineSourcePlayback = true;
-        _previewPlaying = true;
-        VideoPreview.Play();
-        TimelinePlayButton.Text = "Ⅱ";
-#pragma warning restore CS0162
+        if (_chunkPlayback) return;
+        await StartComposedPlaybackAsync(PlayheadSlider.Value);
     }
 
     private void OnPauseClicked(object sender, EventArgs e)
