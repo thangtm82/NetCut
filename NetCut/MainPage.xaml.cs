@@ -14,6 +14,9 @@ public partial class MainPage : ContentPage
     private double? _trimStartOut;
     private bool _shortcutsAttached;
     private bool _previewPlaying;
+    private bool _timelineSourcePlayback;
+    private TimelineClip? _playingTimelineClip;
+    private DateTime _lastScrubPreview = DateTime.MinValue;
     private CancellationTokenSource? _exportCancellation;
     private CancellationTokenSource? _frameCancellation;
     private CancellationTokenSource? _previewCancellation;
@@ -68,9 +71,30 @@ public partial class MainPage : ContentPage
             TimelineList.SelectedItem = clip;
             PreviewClip(clip);
         };
-        TimelineCanvas.PlayheadRequested += seconds => PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
-        TimelineCanvas.PlayheadScrubStarted += _ => { _previewPlaying = false; VideoPreview.Pause(); };
-        TimelineCanvas.PlayheadScrubEnded += _ => OnSeekClicked(this, EventArgs.Empty);
+        TimelineCanvas.PlayheadRequested += seconds =>
+        {
+            PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+            // Throttle decoder seeks while preserving high-frequency playhead tracking.
+            if (DateTime.UtcNow - _lastScrubPreview >= TimeSpan.FromMilliseconds(80))
+            {
+                _lastScrubPreview = DateTime.UtcNow;
+                SeekTimelinePreview(PlayheadSlider.Value);
+            }
+        };
+        TimelineCanvas.PlayheadScrubStarted += _ =>
+        {
+            _previewPlaying = false;
+            _timelineSourcePlayback = false;
+            _playingTimelineClip = null;
+            VideoPreview.Pause();
+            TimelinePlayButton.Text = "▶";
+            _lastScrubPreview = DateTime.MinValue;
+        };
+        TimelineCanvas.PlayheadScrubEnded += seconds =>
+        {
+            PlayheadSlider.Value = Math.Clamp(seconds, 0, PlayheadSlider.Maximum);
+            SeekTimelinePreview(PlayheadSlider.Value);
+        };
         TimelineCanvas.ScrubEdgePanRequested += deltaPixels =>
         {
             _viewStartSeconds = Math.Clamp(_viewStartSeconds + deltaPixels / Math.Max(.01, TimelineCanvas.PixelsPerSecond), 0, MaxViewStart);
@@ -92,7 +116,25 @@ public partial class MainPage : ContentPage
         };
         VideoPreview.PlaybackPositionChanged += (_, seconds) =>
         {
-            if (_chunkPlayback) PlayheadSlider.Value = Math.Clamp(_chunkOffset + seconds, 0, _project.DurationSeconds);
+            if (_chunkPlayback)
+            {
+                PlayheadSlider.Value = Math.Clamp(_chunkOffset + seconds, 0, _project.DurationSeconds);
+                return;
+            }
+            if (!_timelineSourcePlayback || !_previewPlaying || _playingTimelineClip is null) return;
+            var clip = _playingTimelineClip;
+            double time = clip.StartSeconds + seconds - clip.InSeconds;
+            if (time >= clip.StartSeconds + clip.DurationSeconds - .04)
+            {
+                VideoPreview.Pause();
+                _previewPlaying = false;
+                _timelineSourcePlayback = false;
+                _playingTimelineClip = null;
+                PlayheadSlider.Value = Math.Clamp(clip.StartSeconds + clip.DurationSeconds, 0, PlayheadSlider.Maximum);
+                TimelinePlayButton.Text = "▶";
+                return;
+            }
+            PlayheadSlider.Value = Math.Clamp(time, 0, PlayheadSlider.Maximum);
         };
         VideoPreview.PlaybackEnded += async (_, _) =>
         {
@@ -340,8 +382,26 @@ public partial class MainPage : ContentPage
         TimelineCanvas.Refresh();
     }
 
-    private void OnPlayClicked(object sender, EventArgs e) { _previewPlaying = true; VideoPreview.Play(); }
-    private void OnPauseClicked(object sender, EventArgs e) { _previewPlaying = false; VideoPreview.Pause(); }
+    private void OnPlayClicked(object sender, EventArgs e)
+    {
+        if (_project.Clips.Count == 0) return;
+        var clip = SeekTimelinePreview(PlayheadSlider.Value);
+        if (clip is null) return;
+        _playingTimelineClip = clip;
+        _timelineSourcePlayback = true;
+        _previewPlaying = true;
+        VideoPreview.Play();
+        TimelinePlayButton.Text = "Ⅱ";
+    }
+
+    private void OnPauseClicked(object sender, EventArgs e)
+    {
+        _previewPlaying = false;
+        _timelineSourcePlayback = false;
+        _playingTimelineClip = null;
+        VideoPreview.Pause();
+        TimelinePlayButton.Text = "▶";
+    }
 
     private async void OnMoveTrackClicked(object sender, EventArgs e)
     {
@@ -407,21 +467,42 @@ public partial class MainPage : ContentPage
             " / " + TimeSpan.FromSeconds(_project.DurationSeconds).ToString(@"mm\:ss");
     }
 
-    private void OnSeekClicked(object sender, EventArgs e)
+    // Resolve project timeline time to the actual media source and source-local time.
+    // This is source-only preview; composites and transitions need the render pipeline.
+    private TimelineClip? SeekTimelinePreview(double timelineSeconds)
     {
-        var time = PlayheadSlider.Value;
+        double time = Math.Clamp(timelineSeconds, 0, Math.Max(0, _project.DurationSeconds));
         var clip = _project.Clips.Where(c => c.StartSeconds <= time &&
-            time < c.StartSeconds + c.DurationSeconds)
+                time < c.StartSeconds + c.DurationSeconds)
             .OrderByDescending(c => c.TrackIndex).FirstOrDefault();
-        if (clip is null) { VideoPreview.Pause(); StatusLabel.Text = "No clip at playhead."; return; }
+        if (clip is null)
+        {
+            VideoPreview.Pause();
+            _previewPlaying = false;
+            _timelineSourcePlayback = false;
+            _playingTimelineClip = null;
+            StatusLabel.Text = "No video clip at playhead.";
+            return null;
+        }
         var media = _project.Media.FirstOrDefault(m => m.Id == clip.MediaId);
-        if (media is null || !File.Exists(media.Path)) return;
+        if (media is null || !File.Exists(media.Path)) return null;
         CompositedFrame.IsVisible = false;
         VideoPreview.IsVisible = true;
-        VideoPreview.Pause();
+        var sourceTime = Math.Clamp(clip.InSeconds + time - clip.StartSeconds,
+            clip.InSeconds, clip.OutSeconds);
         VideoPreview.SourcePath = media.Path;
-        VideoPreview.PositionSeconds = clip.InSeconds + time - clip.StartSeconds;
-        StatusLabel.Text = "Source-only seek: " + clip.Name + " (not composited preview)";
+        VideoPreview.PositionSeconds = sourceTime;
+        return clip;
+    }
+
+    private void OnSeekClicked(object sender, EventArgs e)
+    {
+        _timelineSourcePlayback = false;
+        _previewPlaying = false;
+        _playingTimelineClip = null;
+        VideoPreview.Pause();
+        TimelinePlayButton.Text = "▶";
+        SeekTimelinePreview(PlayheadSlider.Value);
     }
 
     private async void OnRenderFrameClicked(object sender, EventArgs e)
