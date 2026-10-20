@@ -28,7 +28,10 @@ public sealed class TimelineCanvas : GraphicsView
     private string _mode = "move";
     private bool _scrubbingPlayhead;
     public bool IsScrubbingPlayhead => _scrubbingPlayhead;
+    public event Action<double>? PlayheadScrubStarted;
     public event Action<double>? PlayheadScrubEnded;
+    public event Action<double>? ScrubEdgePanRequested;
+    public double ViewportWidth { get; set; } = 900;
     private double ClampPointerTime(double x) => Math.Clamp(XToSeconds(x), 0, Math.Max(0, ProjectDurationSeconds));
     private void ScrubTo(double x)
     {
@@ -54,6 +57,7 @@ public sealed class TimelineCanvas : GraphicsView
         {
             _scrubbingPlayhead = true;
             _dragging = null;
+            PlayheadScrubStarted?.Invoke(PlayheadSeconds);
             ScrubTo(x);
             return;
         }
@@ -76,7 +80,15 @@ public sealed class TimelineCanvas : GraphicsView
 
     public void MovePointer(double x)
     {
-        if (_scrubbingPlayhead) { ScrubTo(x); return; }
+        if (_scrubbingPlayhead)
+        {
+            // Follow the pointer beyond the visible boundary, as DonkeyCut does.
+            const double edge = 36;
+            if (x > ViewportWidth - edge) ScrubEdgePanRequested?.Invoke(14);
+            else if (x < edge) ScrubEdgePanRequested?.Invoke(-14);
+            ScrubTo(Math.Clamp(x, 0, ViewportWidth));
+            return;
+        }
         if (_dragging is null) return;
         var time = Math.Max(0, XToSeconds(x) - _dragOffset);
         if (_mode == "move") ClipMoved?.Invoke(_dragging, time);
