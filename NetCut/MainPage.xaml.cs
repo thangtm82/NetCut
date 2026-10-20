@@ -26,6 +26,7 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _chunkCancellation;
     private int _activeChunk = -1;
     private bool _chunkPlayback;
+    private bool _composedPlayRequested;
     private double _chunkOffset;
 
     public MainPage()
@@ -85,6 +86,7 @@ public partial class MainPage : ContentPage
         };
         TimelineCanvas.PlayheadScrubStarted += _ =>
         {
+            StopChunks();
             _previewPlaying = false;
             _timelineSourcePlayback = false;
             _playingTimelineClip = null;
@@ -135,15 +137,20 @@ public partial class MainPage : ContentPage
         };
         VideoPreview.PlaybackEnded += async (_, _) =>
         {
+            if (_chunkPlayback && _chunkCancellation is not null)
+            {
+                if (!_composedPlayRequested) return;
+                try { await PlayChunkAsync(_activeChunk + 1, 0, _chunkCancellation.Token); }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { StopChunks(); await ShowError(ex); }
+                return;
+            }
             if (_timelineSourcePlayback && _previewPlaying && _playingTimelineClip is not null)
             {
                 ContinueTimelineAt(_playingTimelineClip.StartSeconds + _playingTimelineClip.DurationSeconds + 0.001);
                 return;
             }
-            if (!_chunkPlayback || _chunkCancellation is null) return;
-            try { await PlayChunkAsync(_activeChunk + 1, 0, _chunkCancellation.Token); }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { StopChunks(); await ShowError(ex); }
+
         };
         BindProject();
     }
@@ -385,8 +392,13 @@ public partial class MainPage : ContentPage
         TimelineCanvas.Refresh();
     }
 
-    private void OnPlayClicked(object sender, EventArgs e)
+    private async void OnPlayClicked(object sender, EventArgs e)
     {
+        if (_project.Clips.Count == 0) return;
+        // Play the actual multi-track timeline proxy, not only the top source clip.
+        await StartComposedPlaybackAsync(PlayheadSlider.Value);
+        return;
+#pragma warning disable CS0162
         if (_project.Clips.Count == 0) return;
         var clip = SeekTimelinePreview(PlayheadSlider.Value);
         if (clip is null)
@@ -399,10 +411,19 @@ public partial class MainPage : ContentPage
         _previewPlaying = true;
         VideoPreview.Play();
         TimelinePlayButton.Text = "Ⅱ";
+#pragma warning restore CS0162
     }
 
     private void OnPauseClicked(object sender, EventArgs e)
     {
+        if (_chunkPlayback)
+        {
+            _previewPlaying = false;
+            _composedPlayRequested = false;
+            VideoPreview.Pause();
+            TimelinePlayButton.Text = "▶";
+            return;
+        }
         _previewPlaying = false;
         _timelineSourcePlayback = false;
         _playingTimelineClip = null;
@@ -626,11 +647,23 @@ public partial class MainPage : ContentPage
 
     private async void OnPlayChunksClicked(object sender, EventArgs e)
     {
+        await StartComposedPlaybackAsync(PlayheadSlider.Value);
+    }
+
+    private async Task StartComposedPlaybackAsync(double seconds)
+    {
+        if (_project.Clips.Count == 0) return;
         StopChunks();
         _chunkCancellation = new CancellationTokenSource();
+        var token = _chunkCancellation.Token;
         _chunkPlayback = true;
-        var index = ChunkPreviewCache.Index(PlayheadSlider.Value);
-        try { await PlayChunkAsync(index, PlayheadSlider.Value - ChunkPreviewCache.Start(index), _chunkCancellation.Token); }
+        _composedPlayRequested = true;
+        _timelineSourcePlayback = false;
+        _playingTimelineClip = null;
+        _previewPlaying = true;
+        TimelinePlayButton.Text = "Ⅱ";
+        int index = ChunkPreviewCache.Index(Math.Min(seconds, Math.Max(0, _project.DurationSeconds - .001)));
+        try { await PlayChunkAsync(index, seconds - ChunkPreviewCache.Start(index), token); }
         catch (OperationCanceledException) { }
         catch (Exception ex) { StopChunks(); await ShowError(ex); }
     }
@@ -653,8 +686,9 @@ public partial class MainPage : ContentPage
         VideoPreview.Pause();
         VideoPreview.SourcePath = proxy;
         VideoPreview.PositionSeconds = offset;
+        if (!_chunkPlayback || !_composedPlayRequested || token.IsCancellationRequested) return;
         VideoPreview.Play();
-        StatusLabel.Text = $"Playing chunk {index + 1}";
+        StatusLabel.Text = $"Playing composed chunk {index + 1}";
         _ = PrefetchChunkAsync(index + 1, token);
     }
 
@@ -669,6 +703,9 @@ public partial class MainPage : ContentPage
     private void StopChunks()
     {
         _chunkPlayback = false;
+        _composedPlayRequested = false;
+        _previewPlaying = false;
+        TimelinePlayButton.Text = "▶";
         _chunkCancellation?.Cancel();
         _chunkCancellation = null;
         VideoPreview.Pause();
