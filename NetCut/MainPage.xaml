@@ -4,41 +4,57 @@
              xmlns:controls="clr-namespace:NetCut.Controls"
              x:Class="NetCut.MainPage"
              Title="NetCut"
-             BackgroundColor="#15171B">
-  <Grid RowDefinitions="Auto,*,205,Auto" Padding="14" RowSpacing="12">
-    <HorizontalStackLayout Spacing="10" Grid.Row="0">
-      <Label Text="NETCUT" FontSize="26" FontAttributes="Bold" TextColor="#F5F7FA" VerticalOptions="Center"/>
-      <Button Text="New" Clicked="OnNewClicked"/>
-      <Button Text="Open Project" Clicked="OnOpenClicked"/>
-      <Button Text="Save Project" Clicked="OnSaveClicked"/>
-      <Button Text="Undo" Clicked="OnUndoClicked"/>
-      <Button Text="Redo" Clicked="OnRedoClicked"/>
-      <Button Text="Import Media" Clicked="OnImportClicked"/>
-      <Button x:Name="ExportButton" Text="Export MP4" Clicked="OnExportClicked"/>
-      <Button x:Name="CancelExportButton" Text="Cancel Export" Clicked="OnCancelExportClicked" IsEnabled="False"/>
-    </HorizontalStackLayout>
+             BackgroundColor="#F7F8FA">
+  <Grid RowDefinitions="48,*,205,Auto" Padding="0" RowSpacing="0">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" BackgroundColor="#FFFFFF" Padding="14,4" ColumnSpacing="12">
+      <HorizontalStackLayout Grid.Column="0" Spacing="9" VerticalOptions="Center">
+        <Label Text="❮" TextColor="#28323D" FontSize="18" VerticalTextAlignment="Center"/>
+        <Label Text="♞" TextColor="#13202E" FontSize="23" FontAttributes="Bold" VerticalTextAlignment="Center"/>
+        <Label x:Name="ProjectNameHeader" Text="Untitled Project" FontSize="14" FontAttributes="Bold" TextColor="#18212B" VerticalTextAlignment="Center"/>
+        <Label x:Name="SaveStateLabel" Text="✓ Saved" FontSize="11" TextColor="#83909C" VerticalTextAlignment="Center"/>
+      </HorizontalStackLayout>
+      <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+        <Button Text="New" Clicked="OnNewClicked" FontSize="12" BackgroundColor="Transparent" TextColor="#263442" Padding="8,2"/>
+        <Button Text="Open" Clicked="OnOpenClicked" FontSize="12" BackgroundColor="Transparent" TextColor="#263442" Padding="8,2"/>
+        <Button Text="Save" Clicked="OnSaveClicked" FontSize="12" BackgroundColor="Transparent" TextColor="#263442" Padding="8,2"/>
+        <Button Text="Undo" Clicked="OnUndoClicked" FontSize="12" BackgroundColor="Transparent" TextColor="#263442" Padding="8,2"/>
+        <Button Text="Redo" Clicked="OnRedoClicked" FontSize="12" BackgroundColor="Transparent" TextColor="#263442" Padding="8,2"/>
+        <Button x:Name="ExportButton" Text="⇧ Export" Clicked="OnExportClicked" FontSize="12" BackgroundColor="#EBF2FB" TextColor="#194B8B" Padding="11,3"/>
+        <Button x:Name="CancelExportButton" Text="Cancel" Clicked="OnCancelExportClicked" IsEnabled="False" FontSize="12" BackgroundColor="#F2F3F5" TextColor="#6C7784" Padding="8,2"/>
+      </HorizontalStackLayout>
+    </Grid>
 
     <Grid Grid.Row="1" ColumnDefinitions="52,254,*,300" ColumnSpacing="8">
-      <Border Grid.Column="0" BackgroundColor="#1E222A" StrokeThickness="0" Padding="3">
-        <VerticalStackLayout Spacing="8">
-          <Button Text="▣" Clicked="OnShowMediaPanelClicked" BackgroundColor="#344252" TextColor="#FFFFFF" FontSize="20" Padding="5" HeightRequest="42"/>
-          <Label Text="Media" FontSize="10" TextColor="#D5DFEA" HorizontalTextAlignment="Center"/>
-          <Button Text="T" Clicked="OnShowTextPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
-          <Label Text="Text" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
-          <Button Text="♫" Clicked="OnShowAudioPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
-          <Label Text="Audio" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
-          <Button Text="⚙" Clicked="OnShowSettingsPanelClicked" BackgroundColor="Transparent" TextColor="#C2CBD7" FontSize="18" Padding="5" HeightRequest="38"/>
-          <Label Text="Tools" FontSize="10" TextColor="#C2CBD7" HorizontalTextAlignment="Center"/>
-        </VerticalStackLayout>
+      <Border Grid.Column="0" BackgroundColor="#FFFFFF" StrokeThickness="0" Padding="2">
+        <ScrollView VerticalScrollBarVisibility="Never"><VerticalStackLayout Spacing="3">
+          <Button Text="▣" Clicked="OnShowMediaPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Media" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="◇" Clicked="OnShowElementsPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Elements" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="✦" Clicked="OnShowEffectsPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Effects" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="◉" Clicked="OnShowTransitionsPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Transitions" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="▤" Clicked="OnShowVideoPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Video" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="▧" Clicked="OnShowImagePanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Image" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="♫" Clicked="OnShowAudioPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Audio" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="▣" Clicked="OnShowSubtitlesPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Subtitles" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+          <Button Text="☷" Clicked="OnShowDetailsPanelClicked" BackgroundColor="Transparent" TextColor="#394754" FontSize="17" Padding="0" HeightRequest="32"/>
+          <Label Text="Details" FontSize="9" TextColor="#495464" HorizontalTextAlignment="Center" Margin="0,0,0,7"/>
+        </VerticalStackLayout></ScrollView>
       </Border>
-      <Border Grid.Column="1" BackgroundColor="#242933" StrokeThickness="0" Padding="10">
+      <Border Grid.Column="1" BackgroundColor="#FFFFFF" StrokeThickness="0" Padding="10">
         <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
-          <Label x:Name="SidebarTitle" Text="Media" FontSize="17" TextColor="#F3F6FA" FontAttributes="Bold"/>
+          <Label x:Name="SidebarTitle" Text="Media" FontSize="17" TextColor="#1E2935" FontAttributes="Bold"/>
           <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="5">
-            <Button x:Name="ProjectFilesTab" Text="Project Files" Clicked="OnProjectFilesTabClicked" BackgroundColor="#3C4A5C" TextColor="White" Padding="4" FontSize="11"/>
-            <Button x:Name="LibraryTab" Grid.Column="1" Text="Library" Clicked="OnLibraryTabClicked" BackgroundColor="#2C323C" TextColor="#CAD3DF" Padding="4" FontSize="11"/>
+            <Button x:Name="ProjectFilesTab" Text="Project Files" Clicked="OnProjectFilesTabClicked" BackgroundColor="#E8EBF1" TextColor="#263544" Padding="4" FontSize="11"/>
+            <Button x:Name="LibraryTab" Grid.Column="1" Text="Library" Clicked="OnLibraryTabClicked" BackgroundColor="#F2F3F6" TextColor="#5A6979" Padding="4" FontSize="11"/>
           </Grid>
-          <Button x:Name="SidebarImportButton" Grid.Row="2" Text="+ Import Media" Clicked="OnImportClicked" BackgroundColor="#176FE5" TextColor="White" FontAttributes="Bold"/>
+          <Button x:Name="SidebarImportButton" Grid.Row="2" Text="⇧ Upload" Clicked="OnImportClicked" BackgroundColor="#F3F5F8" TextColor="#223345" FontAttributes="Bold"/>
           <Grid Grid.Row="3">
             <CollectionView x:Name="MediaList" SelectionMode="Single">
               <CollectionView.EmptyView>
@@ -46,10 +62,10 @@
               </CollectionView.EmptyView>
               <CollectionView.ItemTemplate>
                 <DataTemplate>
-                  <Border BackgroundColor="#303845" StrokeThickness="0" Padding="8" Margin="0,3">
+                  <Border BackgroundColor="#F3F5F8" StrokeThickness="0" Padding="8" Margin="0,3">
                     <Grid>
                       <Grid.GestureRecognizers><DragGestureRecognizer CanDrag="True" DragStarting="OnMediaDragStarting"/></Grid.GestureRecognizers>
-                      <Label Text="{Binding Name}" TextColor="#EEF2F7" FontSize="12" LineBreakMode="TailTruncation"/>
+                      <Label Text="{Binding Name}" TextColor="#253443" FontSize="12" LineBreakMode="TailTruncation"/>
                     </Grid>
                   </Border>
                 </DataTemplate>
